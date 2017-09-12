@@ -6,6 +6,7 @@
       "ssl_context": {
         "cert_chain_file": "${CERTDIR}/server.crt",
         "private_key_file": "${CERTDIR}/cert.key",
+        "ca_cert_file": "${CERTDIR}/server.crt",
         "require_client_certificate": true
       },
       "filters": [
