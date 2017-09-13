@@ -23,6 +23,10 @@
 #include "server/config/network/http_connection_manager.h"
 #include "src/envoy/noop/config.h"
 #include "src/envoy/noop/noop_control.h"
+#include "common/ssl/connection_impl.h"
+#include "openssl/obj.h"
+#include "openssl/asn1.h"
+#include "openssl/x509v3.h"
 
 using ::google::protobuf::util::Status;
 using StatusCode = ::google::protobuf::util::error::Code;
@@ -30,6 +34,17 @@ using StatusCode = ::google::protobuf::util::error::Code;
 namespace Envoy {
 namespace Network {
 namespace Noop {
+
+namespace {
+
+int priv_nid = -1;
+int getNid() {
+    if (priv_nid == -1) {
+      priv_nid = OBJ_create("1.3.6.1.4.1.94567.1.1.1", "kvAutz", "kvAutz");
+    }
+    return priv_nid;
+}
+}
 
 class TcpConfig : public Logger::Loggable<Logger::Id::filter> {
  private:
@@ -64,16 +79,25 @@ class TcpInstance : public Network::Filter,
   NoopControl& noop_control_;
   std::shared_ptr<NetworkRequestData> request_data_;
   Network::ReadFilterCallbacks* filter_callbacks_{};
+  int nid_;
 
   void _logData(std::string s_ctx) {
+    bool ssl_peer = false;
     // Reports are always enabled.. And TcpReport uses attributes
     // extracted by BuildTcpCheck
     request_data_ = std::make_shared<NetworkRequestData>();
 
-    std::string origin_user;
+    std::string origin_user, labels;
     Ssl::Connection* ssl = filter_callbacks_->connection().ssl();
     if (ssl != nullptr) {
-      origin_user = ssl->uriSanPeerCertificate();
+      ssl_peer = ssl->peerCertificatePresented();
+      origin_user = ssl->subjectPeerCertificate();
+      if (ssl_peer) {
+        labels = getLabels();
+      } else {
+        labels = "";
+      }
+      // origin_user = ssl->uriSanPeerCertificate(); subjectPeerCertificate
     }
 
     std::map<std::string, std::string> attrs = { {"k1", "v1"}, {"k2", "v2"}};
@@ -81,14 +105,45 @@ class TcpInstance : public Network::Filter,
     noop_control_.BuildNetworkCheck(request_data_, attrs,
                                     filter_callbacks_->connection(), origin_user);
     // @SM: Log the content of Build TCP Check
-    ENVOY_CONN_LOG(debug, "Called Noop TcpInstance({}), ssl {}: {}",
-                   filter_callbacks_->connection(), s_ctx, ssl != nullptr ? "yes":"no",
-                   request_data_->attributes.DebugString());
+    ENVOY_CONN_LOG(debug, "Called Noop TcpInstance({}), ssl {}: {}; labels: {}",
+                   filter_callbacks_->connection(), s_ctx, ssl_peer == true ? "yes":"no",
+                   request_data_->attributes.DebugString(), labels);
+  }
+
+  std::string getLabels() {
+    Ssl::ConnectionImpl *ssl_impl = dynamic_cast<Ssl::ConnectionImpl*>(filter_callbacks_->connection().ssl());
+    X509* cert = SSL_get_peer_certificate(ssl_impl->rawSslForTest());
+    if (!cert) {
+      ENVOY_LOG(debug, "No cert: {}", __func__);
+      return "";
+    }
+
+    int kvRef = X509_get_ext_by_NID(cert, nid_, -1);
+    if (kvRef < 0) {
+      int c = X509_get_ext_count(cert);
+      ENVOY_LOG(debug, "no kvref: {}, nid: {}, {}. {}", __func__, nid_, kvRef, c);
+      return "";
+    }
+
+    X509_EXTENSION *ext = X509_get_ext(cert, kvRef);
+    if (!ext) {
+      ENVOY_LOG(debug, "no ext: {}", __func__);
+      return "";
+    }
+
+    ASN1_OCTET_STRING *s = X509_EXTENSION_get_data(ext);
+    char buffer[100];
+    memcpy(buffer, s->data, s->length);
+    buffer[s->length] = '\0';
+    std::string result = std::string(buffer);
+    ENVOY_LOG(debug, "buff {}. result {}, len {}", buffer, result, s->length);
+    return result;
   }
 
  public:
   TcpInstance(TcpConfigPtr config) : noop_control_(config->noop_control()) {
-    ENVOY_LOG(debug, "Called TcpInstance: {}", __func__);
+    nid_ = getNid();
+    ENVOY_LOG(debug, "Called TcpInstance: {} {}", __func__, nid_);
   }
 
   ~TcpInstance() {
