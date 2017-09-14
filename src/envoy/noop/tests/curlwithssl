@@ -1,10 +1,7 @@
 #!/bin/sh
 set -e
-CDIR=/home/saurabh/go/src/github.com/colabsaumoh/proxy
-#curl \
-#-E ${CDIR}/src/envoy/noop/certs/client.crt \
-#--key ${CDIR}/src/envoy/noop/certs/cert.key \
-#--ssl \
-#--ssl-reqd \
-#-v http://127.0.0.1:9090/
-curl --cacert ${CDIR}/src/envoy/noop/certs/server.crt -v https://server.test.com:9090/
+set -x
+CDIR=../certs
+curl -k \
+-E ${CDIR}/clientoid.pem \
+-v https://server.test.com:9090/

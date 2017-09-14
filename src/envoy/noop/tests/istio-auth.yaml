@@ -1,0 +1,42 @@
+# Create a istio-auth deployment which generates cert's that are long-lived.
+#
+#
+#
+# This CA only issues certs/keys for the namespace it runs in.
+# For demo only. Please use istio-cluster-ca.yaml for real-world use cases.
+# Service account CA runs in.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: istio-ca-service-account
+---
+# Istio CA
+apiVersion: v1
+kind: Deployment
+apiVersion: extensions/v1beta1
+metadata:
+  name: istio-ca
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        istio: istio-ca
+    spec:
+#      serviceAccountName: istio-ca-service-account
+      containers:
+      - name: istio-ca
+        image: quay.io/saurabh/istio-ca:1
+        imagePullPolicy: IfNotPresent
+        env:
+        - name: NAMESPACE
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.namespace
+        args:
+          - --cert-ttl
+          - "3650h"
+          - --v
+          - "5"
+---
