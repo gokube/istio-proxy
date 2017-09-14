@@ -4,9 +4,9 @@
       "address": "tcp://0.0.0.0:${PORT}",
       "bind_to_port": true,
       "ssl_context": {
-        "cert_chain_file": "${CERTDIR}/server.crt",
-        "private_key_file": "${CERTDIR}/cert.key",
-        "ca_cert_file": "${CERTDIR}/server.crt",
+        "cert_chain_file": "${CERTDIR}/test.server.com.crt",
+        "private_key_file": "${CERTDIR}/productpage.key",
+        "ca_cert_file": "${CERTDIR}/istio.test1-root-cert.pem",
         "require_client_certificate": true
       },
       "filters": [
