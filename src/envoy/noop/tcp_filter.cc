@@ -27,6 +27,7 @@
 #include "openssl/obj.h"
 #include "openssl/asn1.h"
 #include "openssl/x509v3.h"
+#include "openssl/bio.h"
 
 using ::google::protobuf::util::Status;
 using StatusCode = ::google::protobuf::util::error::Code;
@@ -37,6 +38,8 @@ namespace Noop {
 
 namespace {
 
+#define TAGCLAIMLABEL 1
+#define SIZETYLEN (sizeof(uint8_t) * 2)
 int priv_nid = -1;
 int getNid() {
     if (priv_nid == -1) {
@@ -87,56 +90,151 @@ class TcpInstance : public Network::Filter,
     // extracted by BuildTcpCheck
     request_data_ = std::make_shared<NetworkRequestData>();
 
-    std::string origin_user, labels;
+    std::string origin_user;
+    std::map<std::string, std::string> attrs;
     Ssl::Connection* ssl = filter_callbacks_->connection().ssl();
     if (ssl != nullptr) {
       ssl_peer = ssl->peerCertificatePresented();
       origin_user = ssl->subjectPeerCertificate();
       if (ssl_peer) {
-        labels = getLabels();
-      } else {
-        labels = "";
+        attrs = getLabels();
       }
       // origin_user = ssl->uriSanPeerCertificate(); subjectPeerCertificate
     }
 
-    std::map<std::string, std::string> attrs = { {"k1", "v1"}, {"k2", "v2"}};
-   
     noop_control_.BuildNetworkCheck(request_data_, attrs,
                                     filter_callbacks_->connection(), origin_user);
     // @SM: Log the content of Build TCP Check
-    ENVOY_CONN_LOG(debug, "Called Noop TcpInstance({}), ssl {}: {}; labels: {}",
+    ENVOY_CONN_LOG(debug, "Called Noop TcpInstance({}), ssl {}: rqd {}",
                    filter_callbacks_->connection(), s_ctx, ssl_peer == true ? "yes":"no",
-                   request_data_->attributes.DebugString(), labels);
+                   request_data_->attributes.DebugString());
   }
 
-  std::string getLabels() {
+  int parse_asn1_str_(const unsigned char *start, std::string &rval)
+  {
+    uint8_t t, l;
+
+    t = static_cast<uint8_t>(*start);
+    if (t != V_ASN1_PRINTABLESTRING) {
+      ENVOY_LOG(debug, "{}: Not a string at {} ({})", __func__, start, t);
+      return -1;
+    }
+    start++;
+    l = static_cast<uint8_t>(*start);
+    start++;
+    for (long i = 0; i < l; i++) {
+      rval += static_cast<char>(start[i]);
+    }
+    return SIZETYLEN + l;
+  }
+
+  int parse_context_spec_label(const unsigned char *start, long *omax, std::map<std::string, std::string> &result) {
+    std::string key, val;
+    long slen;
+    int ptag, pclass, rval;
+    int bcount = 0;
+
+    rval = ASN1_get_object(&start, &slen, &ptag, &pclass, *omax);
+    if (rval & 0x80) {
+      ENVOY_LOG(debug, "{}: Bad object header", __func__);
+      return -1;
+    }
+    if (ptag != V_ASN1_SEQUENCE) {
+      ENVOY_LOG(debug, "{}: tag {} pclass: {} invalid!", __func__, ptag, pclass);
+      return -1;
+    }
+    bcount += SIZETYLEN;
+    // Start of the key
+    int l = parse_asn1_str_(start, key);
+    if (l <= 0) {
+      return -1;
+    }
+    start += l;
+    bcount += l;
+
+    if (bcount >= *omax) {
+      ENVOY_LOG(debug, "{}: bcount {} >= max {}", __func__, bcount, *omax);
+      return -1;
+    }
+
+    // Must have the value now
+    l = parse_asn1_str_(start, val);
+    if (l <= 0) {
+      return -1;
+    }
+    start += l;
+    bcount += l;
+    result.insert(std::map<std::string, std::string>::value_type(key, val));
+
+    *omax -= bcount;
+    ENVOY_LOG(debug, "{}: k,v is {}: {} (omax: {})", __func__, key, val, *omax);
+    return bcount;
+  }
+
+  std::map<std::string, std::string> parse_claims(ASN1_OCTET_STRING *data) {
+    const unsigned char *start;
+    long slen;
+    int ptag, pclass, rval;
+    std::map<std::string, std::string> result;
+    uint8_t classntag;
+
+    start = data->data;
+/*
+    ENVOY_LOG(debug, "len: {}, type: {}, flags: {}, start: {}", data->length, data->type, data->flags, start);
+    for (int i = 0; i < data->length; i++) {
+       ENVOY_LOG(debug, "{}", data->data[i]);
+    }
+*/
+    rval = ASN1_get_object(&start, &slen, &ptag, &pclass, data->length);
+    if (rval & 0x80) {
+      ENVOY_LOG(debug, "{}: Bad object header", __func__);
+      return result;
+    }
+    if (ptag != V_ASN1_SEQUENCE) {
+      ENVOY_LOG(debug, "{}: tag {} pclass: {} invalid!", __func__, ptag, pclass);
+      return result;
+    }
+
+    long omax = slen;
+    int l;
+    for (classntag = static_cast<uint8_t>(*start);
+         omax > 0  && classntag == (V_ASN1_CONTEXT_SPECIFIC|TAGCLAIMLABEL);
+         start += l, classntag = static_cast<uint8_t>(*start)) {
+
+      start += SIZETYLEN;
+      omax -= SIZETYLEN;
+      l = parse_context_spec_label(start, &omax, result);
+      if (l <= 0) {
+        return std::map<std::string, std::string>();
+      }
+    }
+
+    return result;
+  }
+
+  std::map<std::string, std::string> getLabels() {
     Ssl::ConnectionImpl *ssl_impl = dynamic_cast<Ssl::ConnectionImpl*>(filter_callbacks_->connection().ssl());
-    X509* cert = SSL_get_peer_certificate(ssl_impl->rawSslForTest());
+    bssl::UniquePtr<X509> cert(SSL_get_peer_certificate(ssl_impl->rawSslForTest()));
+    std::map<std::string, std::string> result;
+
     if (!cert) {
       ENVOY_LOG(debug, "No cert: {}", __func__);
-      return "";
+      return result;
     }
 
-    int kvRef = X509_get_ext_by_NID(cert, nid_, -1);
-    if (kvRef < 0) {
-      int c = X509_get_ext_count(cert);
-      ENVOY_LOG(debug, "no kvref: {}, nid: {}, {}. {}", __func__, nid_, kvRef, c);
-      return "";
+    int azRef = X509_get_ext_by_NID(cert.get(), nid_, -1);
+    if (azRef < 0) {
+      ENVOY_LOG(debug, "{} no kvref, nid: {}, {}", __func__, nid_, azRef);
+      return result;
     }
 
-    X509_EXTENSION *ext = X509_get_ext(cert, kvRef);
+    X509_EXTENSION *ext = X509_get_ext(cert.get(), azRef);
     if (!ext) {
       ENVOY_LOG(debug, "no ext: {}", __func__);
-      return "";
+      return result;
     }
 
-    ASN1_OCTET_STRING *s = X509_EXTENSION_get_data(ext);
-    char buffer[100];
-    memcpy(buffer, s->data, s->length);
-    buffer[s->length] = '\0';
-    std::string result = std::string(buffer);
-    ENVOY_LOG(debug, "buff {}. result {}, len {}", buffer, result, s->length);
+    result = parse_claims(X509_EXTENSION_get_data(ext));
     return result;
   }
 
@@ -176,26 +274,6 @@ class TcpInstance : public Network::Filter,
                    filter_callbacks_->connection(),
                    filter_callbacks_->connection().remoteAddress().asString(),
                    filter_callbacks_->connection().localAddress().asString());
-
-    _logData("NewConnection");
-    // Reports are always enabled.. And TcpReport uses attributes
-    // extracted by BuildTcpCheck
-    request_data_ = std::make_shared<NetworkRequestData>();
-
-    std::string origin_user;
-    Ssl::Connection* ssl = filter_callbacks_->connection().ssl();
-    if (ssl != nullptr) {
-      origin_user = ssl->uriSanPeerCertificate();
-    }
-
-    std::map<std::string, std::string> attrs = { {"k1", "v1"}, {"k2", "v2"}};
-   
-    noop_control_.BuildNetworkCheck(request_data_, attrs,
-                                    filter_callbacks_->connection(), origin_user);
-    // @SM: Log the content of Build TCP Check
-    ENVOY_CONN_LOG(debug, "Called Noop TcpInstance onNewConnection: {}",
-                   filter_callbacks_->connection(),
-                   request_data_->attributes.DebugString());
 
     return Network::FilterStatus::Continue;
   }
