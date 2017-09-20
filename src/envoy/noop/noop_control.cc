@@ -20,15 +20,14 @@
 
 using ::google::protobuf::util::Status;
 using ::google::protobuf::Map;
-//using StatusCode = ::google::protobuf::util::error::Code;
-/*
+using StatusCode = ::google::protobuf::util::error::Code;
 using ::istio::mixer_client::Attributes;
-using ::istio::mixer_client::CheckOptions;
-using ::istio::mixer_client::DoneFunc;
-using ::istio::mixer_client::MixerClientOptions;
-using ::istio::mixer_client::ReportOptions;
-using ::istio::mixer_client::QuotaOptions;
-*/
+//using ::istio::mixer_client::noop::CheckOptions;
+using ::istio::noop_client::DoneFunc;
+using ::istio::noop_client::NoopClientOptions;
+//using ::istio::mixer_client::noop::MixerClientOptions;
+//using ::istio::mixer_client::ReportOptions;
+//using ::istio::mixer_client::QuotaOptions;
 
 namespace Envoy {
 namespace Network {
@@ -80,9 +79,31 @@ void SetIPAttribute(const std::string& name, const Network::Address::Ip& ip,
 }  // namespace
 
 NoopControl::NoopControl(const NoopConfig& noop_config,
-                         Upstream::ClusterManager& cm, Event::Dispatcher& dispatcher)
+                         Upstream::ClusterManager& cm,
+                         Event::Dispatcher& dispatcher,
+                         Runtime::RandomGenerator& random)
     : cm_(cm), noop_config_(noop_config) {
      std::ignore = dispatcher;
+
+  NoopClientOptions options;
+
+  options.uuid_generate_func = [&random]() -> std::string {
+    return random.uuid();
+  };
+
+  noop_client_ = ::istio::noop_client::CreateNoopClient(options);
+}
+
+istio::noop_client::CancelFunc NoopControl::SendCheck(
+    NetworkRequestDataPtr request_data, DoneFunc on_done) {
+  if (!noop_client_) {
+    on_done(
+        Status(StatusCode::INVALID_ARGUMENT, "Missing mixer_server cluster"));
+    return nullptr;
+  }
+  ENVOY_LOG(debug, "Send Check: {}", request_data->attributes.DebugString());
+  return noop_client_->Check(request_data->attributes,
+                             CheckTransport::GetFunc(cm_), on_done);
 }
 
 void NoopControl::BuildNetworkCheck(NetworkRequestDataPtr request_data,

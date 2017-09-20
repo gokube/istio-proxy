@@ -23,15 +23,16 @@
 #include "common/common/logger.h"
 #include "envoy/thread_local/thread_local.h"
 #include "envoy/upstream/cluster_manager.h"
+#include "include/noop/client.h"
 #include "src/envoy/noop/config.h"
-#include "src/envoy/noop/attribute.h"
+#include "src/envoy/noop/grpc_transport.h"
 
 namespace Envoy {
 namespace Network {
 namespace Noop {
 
 struct NetworkRequestData {
-     Attributes attributes;
+     ::istio::mixer_client::Attributes attributes;
 };
 typedef std::shared_ptr<NetworkRequestData> NetworkRequestDataPtr;
 
@@ -42,7 +43,8 @@ class NoopControl final : public ThreadLocal::ThreadLocalObject,
                           public Logger::Loggable<Logger::Id::filter> {
  public:
   // The constructor.
-  NoopControl(const NoopConfig& noop_config, Upstream::ClusterManager& cm, Event::Dispatcher& dispatcher);
+  NoopControl(const NoopConfig& noop_config, Upstream::ClusterManager& cm,
+              Event::Dispatcher& dispatcher, Runtime::RandomGenerator& random);
 
   // Build check request attributes for Network.
   void BuildNetworkCheck(NetworkRequestDataPtr request_data,
@@ -61,6 +63,9 @@ class NoopControl final : public ThreadLocal::ThreadLocalObject,
   // Make remote report call.
   // void SendReport(HttpRequestDataPtr request_data);
 */
+  // Make remote check call.
+  istio::noop_client::CancelFunc SendCheck(
+      NetworkRequestDataPtr request_data, ::istio::noop_client::DoneFunc on_done);
 
   // See if check calls are disabled for Network proxy
   bool NoopCheckDisabled() const {
@@ -70,6 +75,8 @@ class NoopControl final : public ThreadLocal::ThreadLocalObject,
  private:
   // Envoy cluster manager for making gRPC calls.
   Upstream::ClusterManager& cm_;
+  // The dikastes client
+  std::unique_ptr<::istio::noop_client::NoopClient> noop_client_;
   // The noop config
   const NoopConfig& noop_config_;
   // @SM TBD CheckTransport::AsyncClientPtr check_client_;

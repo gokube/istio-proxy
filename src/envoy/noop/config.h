@@ -20,7 +20,7 @@
 #include <vector>
 
 #include "envoy/json/json_object.h"
-#include "src/envoy/noop/attribute.h"
+#include "include/attribute.h"
 
 namespace Envoy {
 namespace Network {

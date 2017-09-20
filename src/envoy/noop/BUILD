@@ -28,16 +28,18 @@ load(
 envoy_cc_library(
     name = "filter_lib",
     srcs = [
-        "attribute.h",
-        "attribute.cc",
         "config.cc",
         "config.h",
         "noop_control.cc",
         "noop_control.h",
         "tcp_filter.cc",
+        "grpc_transport.cc",
+        "grpc_transport.h"
     ],
     repository = "@envoy",
     deps = [
+        "//external:mixer_client_lib",
+        "@envoy//source/common/grpc:rpc_channel_lib",
         "@envoy//source/exe:envoy_common_lib",
     ],
 )

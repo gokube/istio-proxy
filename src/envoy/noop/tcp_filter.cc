@@ -66,7 +66,7 @@ class TcpConfig : public Logger::Loggable<Logger::Id::filter> {
         [this, &random](Event::Dispatcher& dispatcher)
             -> ThreadLocal::ThreadLocalObjectSharedPtr {
               return ThreadLocal::ThreadLocalObjectSharedPtr(
-                  new NoopControl(noop_config_, cm_, dispatcher));
+                  new NoopControl(noop_config_, cm_, dispatcher, random));
             });
   }
 
@@ -79,9 +79,14 @@ class TcpInstance : public Network::Filter,
                     public Network::ConnectionCallbacks,
                     public Logger::Loggable<Logger::Id::filter> {
  private:
+  enum class State { NotStarted, Calling, Completed, Closed };
+
+  istio::noop_client::CancelFunc cancel_check_;
   NoopControl& noop_control_;
   std::shared_ptr<NetworkRequestData> request_data_;
   Network::ReadFilterCallbacks* filter_callbacks_{};
+  State state_{State::NotStarted};
+  bool calling_check_{};
   int nid_;
 
   void _logData(std::string s_ctx) {
@@ -105,7 +110,7 @@ class TcpInstance : public Network::Filter,
     noop_control_.BuildNetworkCheck(request_data_, attrs,
                                     filter_callbacks_->connection(), origin_user);
     // @SM: Log the content of Build TCP Check
-    ENVOY_CONN_LOG(debug, "Called Noop TcpInstance({}), ssl {}: rqd {}",
+    ENVOY_CONN_LOG(debug, "Called Noop TcpInstance(}), ssl {}: rqd {}",
                    filter_callbacks_->connection(), s_ctx, ssl_peer == true ? "yes":"no",
                    request_data_->attributes.DebugString());
   }
@@ -285,6 +290,55 @@ class TcpInstance : public Network::Filter,
         return;
       }
       _logData("OnEvent");
+      bool ssl_peer = false;
+      // Reports are always enabled.. And TcpReport uses attributes
+      // extracted by BuildTcpCheck
+      request_data_ = std::make_shared<NetworkRequestData>();
+
+      std::string origin_user;
+      std::map<std::string, std::string> attrs;
+      Ssl::Connection* ssl = filter_callbacks_->connection().ssl();
+      if (ssl != nullptr) {
+        ssl_peer = ssl->peerCertificatePresented();
+        if (ssl_peer) {
+          attrs = getLabels();
+        }
+        origin_user = ssl->uriSanPeerCertificate();
+      }
+
+      noop_control_.BuildNetworkCheck(request_data_, attrs,
+                                      filter_callbacks_->connection(), origin_user);
+      ENVOY_CONN_LOG(debug, "Called onEvent, ssl {}: rqd {}",
+                     filter_callbacks_->connection(), ssl_peer == true ? "yes":"no",
+                     request_data_->attributes.DebugString());
+      if (!noop_control_.NoopCheckDisabled()) {
+        state_ = State::Calling;
+        filter_callbacks_->connection().readDisable(true);
+        calling_check_ = true;
+        cancel_check_ = noop_control_.SendCheck(request_data_, [this](const Status& status) { completeCheck(status); });
+        calling_check_ = false;
+        //@SM find a good place to hook this response.
+        // return state__ == State::Calling ? Network::FilterStatus::StopIteration : Network::FilterStatus::Continue;
+      }
+  }
+
+  void completeCheck(const Status& status) {
+    ENVOY_LOG(debug, "{}: {}", __func__, status.ToString());
+    if (state_ == State::Closed) {
+      return;
+    } 
+    state_ = State::Completed;
+    filter_callbacks_->connection().readDisable(false);
+
+    if (!status.ok()) {
+      // check_status_code_ = status.errror_code();
+      filter_callbacks_->connection().close(
+          Network::ConnectionCloseType::NoFlush);
+    } else {
+      if (!calling_check_) {
+        filter_callbacks_->continueReading();
+      }
+    }
   }
 
   void onAboveWriteBufferHighWatermark() override {}

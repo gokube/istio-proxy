@@ -16,14 +16,14 @@
 #
 
 load(
-    "//src/envoy/mixer:repositories.bzl",
-    "mixer_client_repositories",
+    "//src/envoy/noop:repositories.bzl",
+    "dikastes_client_repositories",
 )
 
-mixer_client_repositories()
+dikastes_client_repositories()
 
 load(
-    "@mixerclient_git//:repositories.bzl",
+    "@dikastesclient_git//:repositories.bzl",
     "googleapis_repositories",
     "mixerapi_repositories",
 )
