@@ -12,6 +12,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#include <sstream>
+#include <vector>
 
 #include "src/envoy/noop/noop_control.h"
 
@@ -38,6 +40,8 @@ namespace {
 const std::string kSourceUser = "source.user";
 
 const std::string kRequestLabels = "request.labels";
+const std::string kNamespace = "namespace";
+const std::string kAccount = "account";
 
 // TCP attributes
 // Downstream tcp connection: source ip/port.
@@ -74,6 +78,20 @@ void SetIPAttribute(const std::string& name, const Network::Address::Ip& ip,
     attr->attributes[name] = Attributes::BytesValue(
         std::string(reinterpret_cast<const char*>(ipv6.data()), 16));
   }
+}
+
+void extract_spiffy_attr(const std::string &source_user, std::map<std::string, std::string> &rmap) {
+  std::stringstream ss(source_user);
+  std::string item;
+  std::vector<std::string> tokens;
+  while (getline(ss, item, '/')) {
+    tokens.push_back(std::move(item));
+  }
+  if (tokens.size() != 7) {
+    return;
+  }
+  rmap[kNamespace] = tokens[4];
+  rmap[kAccount] = tokens[6];
 }
 
 }  // namespace
@@ -129,8 +147,19 @@ void NoopControl::BuildNetworkCheck(NetworkRequestDataPtr request_data,
 void NoopControl::BuildAuthzCheck(AuthzRequestDataPtr request_data,
                                  Network::Connection& connection,
                                  const std::string& source_user) const {
+
+  std::map<std::string, std::string> spiffy_attrs;
+
+  extract_spiffy_attr(source_user, spiffy_attrs);
+  ENVOY_LOG(debug, "Calling to setup the atts {}", source_user);
   ::istio::v1::authz::Request_Subject* subject = request_data->request.mutable_subject();
-  subject->set_service_account(source_user);
+
+  if (spiffy_attrs.find(kAccount) != spiffy_attrs.end()) {
+    subject->set_service_account(spiffy_attrs[kAccount]);
+  }
+  if (spiffy_attrs.find(kNamespace) != spiffy_attrs.end()) {
+    subject->set_namespace_(spiffy_attrs[kNamespace]);
+  }
 
   subject->set_ip_address(connection.remoteAddress().asString());
 }

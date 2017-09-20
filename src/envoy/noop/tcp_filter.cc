@@ -100,11 +100,10 @@ class TcpInstance : public Network::Filter,
     Ssl::Connection* ssl = filter_callbacks_->connection().ssl();
     if (ssl != nullptr) {
       ssl_peer = ssl->peerCertificatePresented();
-      origin_user = ssl->subjectPeerCertificate();
       if (ssl_peer) {
         labels = getLabels();
       }
-      // origin_user = ssl->uriSanPeerCertificate(); subjectPeerCertificate
+      origin_user = ssl->uriSanPeerCertificate();
     }
 
     noop_control_.BuildAuthzCheck(request_data_,
