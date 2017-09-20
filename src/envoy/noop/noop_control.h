@@ -36,6 +36,11 @@ struct NetworkRequestData {
 };
 typedef std::shared_ptr<NetworkRequestData> NetworkRequestDataPtr;
 
+struct AuthzRequestData {
+     ::istio::v1::authz::Request request;
+};
+typedef std::shared_ptr<AuthzRequestData> AuthzRequestDataPtr;
+
 // The tcp client class to control TCP requests.
 // It has Check() to validate if a request can be processed.
 // At the end of request, call Report().
@@ -51,6 +56,10 @@ class NoopControl final : public ThreadLocal::ThreadLocalObject,
                      std::map<std::string, std::string> attrs,
                      Network::Connection& connection,
                      const std::string& source_user) const;
+
+  void BuildAuthzCheck(AuthzRequestDataPtr request_data,
+                      Network::Connection& connection,
+                      const std::string& source_user) const;
 /*
   @SM TBD: may need this: Make remote report call.
   // Build report request attributs for Network.
@@ -65,7 +74,7 @@ class NoopControl final : public ThreadLocal::ThreadLocalObject,
 */
   // Make remote check call.
   istio::noop_client::CancelFunc SendCheck(
-      NetworkRequestDataPtr request_data, ::istio::noop_client::DoneFunc on_done);
+      AuthzRequestDataPtr request_data, ::istio::noop_client::DoneFunc on_done);
 
   // See if check calls are disabled for Network proxy
   bool NoopCheckDisabled() const {

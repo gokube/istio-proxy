@@ -30,6 +30,7 @@ usage: ${BASH_SOURCE[0]} [options ...]"
     -d ... envoy certs dir path
     -e ... envoy binary path
     -l ... debug level
+    -n ... noop grpc server
     -p ... listening port
     -t ... envoy config template file path
 EOF
@@ -43,6 +44,7 @@ CERTDIR="$ROOT/src/envoy/noop/certs"
 DEBUG=''
 
 PORT='9090'
+NOOP_SERVER='localhost:9091'
 BACKEND='localhost:8080'
 
 while getopts :a:c:e:l:m:p:t: arg; do
@@ -51,6 +53,7 @@ while getopts :a:c:e:l:m:p:t: arg; do
     c) CONFIG="${OPTARG}";;
     d) CERTDIR="${OPTARG}";;
     e) ENVOY="${OPTARG}";;
+    n) NOOP_SERVER="${OPTARG}";;
     l) DEBUG="-l ${OPTARG}";;
     p) PORT="${OPTARG}";;
     t) TEMPLATE="${OPTARG}";;
@@ -61,6 +64,7 @@ done
 sed -e "s|\${PORT}|${PORT}|g" \
     -e "s|\${BACKEND}|${BACKEND}|g" \
     -e "s|\${CERTDIR}|${CERTDIR}|g" \
+    -e "s|\${NOOP_SERVER}|${NOOP_SERVER}|g" \
     "${TEMPLATE}" > "${CONFIG}"
 
 "${ENVOY}" -c "${CONFIG}" "${DEBUG}"

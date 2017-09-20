@@ -83,7 +83,7 @@ class TcpInstance : public Network::Filter,
 
   istio::noop_client::CancelFunc cancel_check_;
   NoopControl& noop_control_;
-  std::shared_ptr<NetworkRequestData> request_data_;
+  std::shared_ptr<AuthzRequestData> request_data_;
   Network::ReadFilterCallbacks* filter_callbacks_{};
   State state_{State::NotStarted};
   bool calling_check_{};
@@ -93,26 +93,25 @@ class TcpInstance : public Network::Filter,
     bool ssl_peer = false;
     // Reports are always enabled.. And TcpReport uses attributes
     // extracted by BuildTcpCheck
-    request_data_ = std::make_shared<NetworkRequestData>();
+    request_data_ = std::make_shared<AuthzRequestData>();
 
     std::string origin_user;
-    std::map<std::string, std::string> attrs;
+    std::map<std::string, std::string> labels;
     Ssl::Connection* ssl = filter_callbacks_->connection().ssl();
     if (ssl != nullptr) {
       ssl_peer = ssl->peerCertificatePresented();
       origin_user = ssl->subjectPeerCertificate();
       if (ssl_peer) {
-        attrs = getLabels();
+        labels = getLabels();
       }
       // origin_user = ssl->uriSanPeerCertificate(); subjectPeerCertificate
     }
 
-    noop_control_.BuildNetworkCheck(request_data_, attrs,
-                                    filter_callbacks_->connection(), origin_user);
+    noop_control_.BuildAuthzCheck(request_data_,
+                                  filter_callbacks_->connection(), origin_user);
     // @SM: Log the content of Build TCP Check
-    ENVOY_CONN_LOG(debug, "Called Noop TcpInstance(}), ssl {}: rqd {}",
-                   filter_callbacks_->connection(), s_ctx, ssl_peer == true ? "yes":"no",
-                   request_data_->attributes.DebugString());
+    ENVOY_CONN_LOG(debug, "Called Noop TcpInstance(}), ssl {}",
+                   filter_callbacks_->connection(), s_ctx, ssl_peer == true ? "yes":"no");
   }
 
   int parse_asn1_str_(const unsigned char *start, std::string &rval)
@@ -293,24 +292,23 @@ class TcpInstance : public Network::Filter,
       bool ssl_peer = false;
       // Reports are always enabled.. And TcpReport uses attributes
       // extracted by BuildTcpCheck
-      request_data_ = std::make_shared<NetworkRequestData>();
+      request_data_ = std::make_shared<AuthzRequestData>();
 
       std::string origin_user;
-      std::map<std::string, std::string> attrs;
+      std::map<std::string, std::string> labels;
       Ssl::Connection* ssl = filter_callbacks_->connection().ssl();
       if (ssl != nullptr) {
         ssl_peer = ssl->peerCertificatePresented();
         if (ssl_peer) {
-          attrs = getLabels();
+          labels = getLabels();
         }
         origin_user = ssl->uriSanPeerCertificate();
       }
 
-      noop_control_.BuildNetworkCheck(request_data_, attrs,
-                                      filter_callbacks_->connection(), origin_user);
-      ENVOY_CONN_LOG(debug, "Called onEvent, ssl {}: rqd {}",
-                     filter_callbacks_->connection(), ssl_peer == true ? "yes":"no",
-                     request_data_->attributes.DebugString());
+      noop_control_.BuildAuthzCheck(request_data_,
+                                    filter_callbacks_->connection(), origin_user);
+      ENVOY_CONN_LOG(debug, "Called onEvent, ssl {}",
+                     filter_callbacks_->connection(), ssl_peer == true ? "yes":"no");
       if (!noop_control_.NoopCheckDisabled()) {
         state_ = State::Calling;
         filter_callbacks_->connection().readDisable(true);

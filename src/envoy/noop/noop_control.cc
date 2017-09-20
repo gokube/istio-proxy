@@ -95,14 +95,14 @@ NoopControl::NoopControl(const NoopConfig& noop_config,
 }
 
 istio::noop_client::CancelFunc NoopControl::SendCheck(
-    NetworkRequestDataPtr request_data, DoneFunc on_done) {
+    AuthzRequestDataPtr request_data, DoneFunc on_done) {
   if (!noop_client_) {
     on_done(
         Status(StatusCode::INVALID_ARGUMENT, "Missing mixer_server cluster"));
     return nullptr;
   }
-  ENVOY_LOG(debug, "Send Check: {}", request_data->attributes.DebugString());
-  return noop_client_->Check(request_data->attributes,
+  ENVOY_LOG(debug, "Send Check:");
+  return noop_client_->Check(request_data->request,
                              CheckTransport::GetFunc(cm_), on_done);
 }
 
@@ -124,6 +124,15 @@ void NoopControl::BuildNetworkCheck(NetworkRequestDataPtr request_data,
 
   SetStringAttribute(kContextProtocol, "tcp", &request_data->attributes);
   request_data->attributes.attributes[kRequestLabels] = Attributes::StringMapValue(std::move(attrs));
+}
+
+void NoopControl::BuildAuthzCheck(AuthzRequestDataPtr request_data,
+                                 Network::Connection& connection,
+                                 const std::string& source_user) const {
+  ::istio::v1::authz::Request_Subject* subject = request_data->request.mutable_subject();
+  subject->set_service_account(source_user);
+
+  subject->set_ip_address(connection.remoteAddress().asString());
 }
  
 }  // namespace Noop
