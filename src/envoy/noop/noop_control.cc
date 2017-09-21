@@ -116,7 +116,7 @@ istio::noop_client::CancelFunc NoopControl::SendCheck(
     AuthzRequestDataPtr request_data, DoneFunc on_done) {
   if (!noop_client_) {
     on_done(
-        Status(StatusCode::INVALID_ARGUMENT, "Missing mixer_server cluster"));
+        Status(StatusCode::INVALID_ARGUMENT, "Missing mixer_server cluster"), nullptr);
     return nullptr;
   }
   ENVOY_LOG(debug, "Send Check:");

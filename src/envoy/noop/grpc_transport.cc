@@ -81,7 +81,7 @@ void GrpcTransport<RequestType, ResponseType>::onSuccess(
   ENVOY_LOG(debug, "{} response: {}", descriptor().name(),
             response->DebugString());
   response->Swap(response_);
-  on_done_(Status::OK);
+  on_done_(Status::OK, response_);
   delete this;
 }
 
@@ -90,7 +90,7 @@ void GrpcTransport<RequestType, ResponseType>::onFailure(
     Grpc::Status::GrpcStatus status, const std::string& message) {
   ENVOY_LOG(debug, "{} failed with code: {}, {}", descriptor().name(), status,
             message);
-  on_done_(Status(static_cast<StatusCode>(status), message));
+  on_done_(Status(static_cast<StatusCode>(status), message), nullptr);
   delete this;
 }
 

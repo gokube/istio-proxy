@@ -30,7 +30,9 @@
 #include "openssl/bio.h"
 
 using ::google::protobuf::util::Status;
+using ::istio::v1::authz::Response;
 using StatusCode = ::google::protobuf::util::error::Code;
+using ResponseCode = ::istio::v1::authz::Response_Status_Code;
 
 namespace Envoy {
 namespace Network {
@@ -312,14 +314,14 @@ class TcpInstance : public Network::Filter,
         state_ = State::Calling;
         filter_callbacks_->connection().readDisable(true);
         calling_check_ = true;
-        cancel_check_ = noop_control_.SendCheck(request_data_, [this](const Status& status) { completeCheck(status); });
+        cancel_check_ = noop_control_.SendCheck(request_data_, [this](const Status &status, Response *resp) { completeCheck(status, resp); });
         calling_check_ = false;
         //@SM find a good place to hook this response.
         // return state__ == State::Calling ? Network::FilterStatus::StopIteration : Network::FilterStatus::Continue;
       }
   }
 
-  void completeCheck(const Status& status) {
+  void completeCheck(const Status& status, Response *resp) {
     ENVOY_LOG(debug, "{}: {}", __func__, status.ToString());
     if (state_ == State::Closed) {
       return;
@@ -327,8 +329,11 @@ class TcpInstance : public Network::Filter,
     state_ = State::Completed;
     filter_callbacks_->connection().readDisable(false);
 
-    if (!status.ok()) {
-      // check_status_code_ = status.errror_code();
+    if (!status.ok() ||
+        resp->status().code() == ResponseCode::Response_Status_Code_PERMISSION_DENIED) {
+      ENVOY_CONN_LOG(debug, "{}: Closing connection {}",
+                     filter_callbacks_->connection(), __func__,
+                     std::to_string(resp->status().code()));
       filter_callbacks_->connection().close(
           Network::ConnectionCloseType::NoFlush);
     } else {
