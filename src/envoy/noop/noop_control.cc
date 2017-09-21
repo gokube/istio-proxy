@@ -161,7 +161,8 @@ void NoopControl::BuildAuthzCheck(AuthzRequestDataPtr request_data,
     subject->set_namespace_(spiffy_attrs[kNamespace]);
   }
 
-  subject->set_ip_address(connection.remoteAddress().asString());
+  subject->set_ip_address(connection.remoteAddress().ip()->addressAsString());
+  subject->set_port(std::to_string(connection.remoteAddress().ip()->port()));
 }
  
 }  // namespace Noop
