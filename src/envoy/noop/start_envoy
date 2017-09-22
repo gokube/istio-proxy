@@ -31,6 +31,7 @@ usage: ${BASH_SOURCE[0]} [options ...]"
     -e ... envoy binary path
     -l ... debug level
     -n ... noop grpc server
+    -m ... mixer server address
     -p ... listening port
     -t ... envoy config template file path
 EOF
@@ -45,6 +46,7 @@ DEBUG=''
 
 PORT='9090'
 NOOP_SERVER='localhost:9091'
+MIXER_SERVER='localhost:9092'
 BACKEND='localhost:8080'
 
 while getopts :a:c:e:l:m:p:t: arg; do
@@ -54,6 +56,7 @@ while getopts :a:c:e:l:m:p:t: arg; do
     d) CERTDIR="${OPTARG}";;
     e) ENVOY="${OPTARG}";;
     n) NOOP_SERVER="${OPTARG}";;
+    m) MIXER_SERVER="${OPTARG}";;
     l) DEBUG="-l ${OPTARG}";;
     p) PORT="${OPTARG}";;
     t) TEMPLATE="${OPTARG}";;
@@ -65,6 +68,7 @@ sed -e "s|\${PORT}|${PORT}|g" \
     -e "s|\${BACKEND}|${BACKEND}|g" \
     -e "s|\${CERTDIR}|${CERTDIR}|g" \
     -e "s|\${NOOP_SERVER}|${NOOP_SERVER}|g" \
+    -e "s|\${MIXER_SERVER}|${MIXER_SERVER}|g" \
     "${TEMPLATE}" > "${CONFIG}"
 
 "${ENVOY}" -c "${CONFIG}" "${DEBUG}"

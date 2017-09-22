@@ -55,6 +55,7 @@ envoy_cc_library(
         "@envoy//source/common/grpc:rpc_channel_lib",
         "@envoy//source/exe:envoy_common_lib",
     ],
+    visibility = ["//visibility:public"],
 )
 
 envoy_cc_binary(
