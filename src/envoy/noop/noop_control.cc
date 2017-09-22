@@ -94,6 +94,17 @@ void extract_spiffy_attr(const std::string &source_user, std::map<std::string, s
   rmap[kAccount] = tokens[6];
 }
 
+// @SM TBD Make it a template for map k,v types.
+void SetPbuffMapStr2Str(::google::protobuf::Map< ::std::string, ::std::string>*dst,
+                       const std::map<std::string, std::string>& src)
+{
+  if (dst != nullptr) {
+    for (std::map<std::string, std::string>::const_iterator it = src.begin(); it != src.end(); it++) {
+      (*dst)[it->first] = it->second;
+    }
+  }
+}
+
 }  // namespace
 
 NoopControl::NoopControl(const NoopConfig& noop_config,
@@ -145,8 +156,9 @@ void NoopControl::BuildNetworkCheck(NetworkRequestDataPtr request_data,
 }
 
 void NoopControl::BuildAuthzCheck(AuthzRequestDataPtr request_data,
-                                 Network::Connection& connection,
-                                 const std::string& source_user) const {
+				  std::map<std::string, std::string> &labels,
+                                  Network::Connection& connection,
+                                  const std::string& source_user) const {
 
   std::map<std::string, std::string> spiffy_attrs;
 
@@ -163,6 +175,9 @@ void NoopControl::BuildAuthzCheck(AuthzRequestDataPtr request_data,
 
   subject->set_ip_address(connection.remoteAddress().ip()->addressAsString());
   subject->set_port(std::to_string(connection.remoteAddress().ip()->port()));
+
+  
+  SetPbuffMapStr2Str(subject->mutable_service_account_labels(), labels);
 }
  
 }  // namespace Noop

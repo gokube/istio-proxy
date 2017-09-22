@@ -108,7 +108,7 @@ class TcpInstance : public Network::Filter,
       origin_user = ssl->uriSanPeerCertificate();
     }
 
-    noop_control_.BuildAuthzCheck(request_data_,
+    noop_control_.BuildAuthzCheck(request_data_, labels,
                                   filter_callbacks_->connection(), origin_user);
     // @SM: Log the content of Build TCP Check
     ENVOY_CONN_LOG(debug, "Called Noop TcpInstance(}), ssl {}",
@@ -306,7 +306,7 @@ class TcpInstance : public Network::Filter,
         origin_user = ssl->uriSanPeerCertificate();
       }
 
-      noop_control_.BuildAuthzCheck(request_data_,
+      noop_control_.BuildAuthzCheck(request_data_, labels,
                                     filter_callbacks_->connection(), origin_user);
       ENVOY_CONN_LOG(debug, "Called onEvent, ssl {}",
                      filter_callbacks_->connection(), ssl_peer == true ? "yes":"no");
@@ -330,7 +330,7 @@ class TcpInstance : public Network::Filter,
     filter_callbacks_->connection().readDisable(false);
 
     if (!status.ok() ||
-        resp->status().code() == ResponseCode::Response_Status_Code_PERMISSION_DENIED) {
+        resp->status().code() != ResponseCode::Response_Status_Code_OK) {
       ENVOY_CONN_LOG(debug, "{}: Closing connection {}",
                      filter_callbacks_->connection(), __func__,
                      std::to_string(resp->status().code()));

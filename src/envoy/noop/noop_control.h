@@ -58,8 +58,9 @@ class NoopControl final : public ThreadLocal::ThreadLocalObject,
                      const std::string& source_user) const;
 
   void BuildAuthzCheck(AuthzRequestDataPtr request_data,
-                      Network::Connection& connection,
-                      const std::string& source_user) const;
+                       std::map<std::string, std::string> &labels,
+                       Network::Connection& connection,
+                       const std::string& source_user) const;
 /*
   @SM TBD: may need this: Make remote report call.
   // Build report request attributs for Network.
