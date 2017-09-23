@@ -280,45 +280,41 @@ class TcpInstance : public Network::Filter,
                    filter_callbacks_->connection().remoteAddress().asString(),
                    filter_callbacks_->connection().localAddress().asString());
 
-    return Network::FilterStatus::Continue;
+    _logData("onNewConnection");
+    bool ssl_peer = false;
+    // Reports are always enabled.. And TcpReport uses attributes
+    // extracted by BuildTcpCheck
+    request_data_ = std::make_shared<AuthzRequestData>();
+
+    std::string origin_user;
+    std::map<std::string, std::string> labels;
+    Ssl::Connection* ssl = filter_callbacks_->connection().ssl();
+    if (ssl != nullptr) {
+      ssl_peer = ssl->peerCertificatePresented();
+      if (ssl_peer) {
+        labels = getLabels();
+      }
+      origin_user = ssl->uriSanPeerCertificate();
+    }
+
+    noop_control_.BuildAuthzCheck(request_data_, labels,
+                                  filter_callbacks_->connection(), origin_user);
+    ENVOY_CONN_LOG(debug, "Called {}, ssl {}",
+                   filter_callbacks_->connection(), __func__, ssl_peer == true ? "yes":"no");
+    if (!noop_control_.NoopCheckDisabled()) {
+      state_ = State::Calling;
+      filter_callbacks_->connection().readDisable(true);
+      calling_check_ = true;
+      cancel_check_ = noop_control_.SendCheck(request_data_, [this](const Status &status, Response *resp) { completeCheck(status, resp); });
+      calling_check_ = false;
+    }
+    return state_ == State::Calling ? Network::FilterStatus::StopIteration
+                                    : Network::FilterStatus::Continue;
   }
 
   // Network::ConnectionCallbacks
   void onEvent(Network::ConnectionEvent event) override {
       ENVOY_LOG(debug, "Called TcpInstance onEvent: {}", enumToInt(event));
-      if (event != Network::ConnectionEvent::Connected) {
-        return;
-      }
-      _logData("OnEvent");
-      bool ssl_peer = false;
-      // Reports are always enabled.. And TcpReport uses attributes
-      // extracted by BuildTcpCheck
-      request_data_ = std::make_shared<AuthzRequestData>();
-
-      std::string origin_user;
-      std::map<std::string, std::string> labels;
-      Ssl::Connection* ssl = filter_callbacks_->connection().ssl();
-      if (ssl != nullptr) {
-        ssl_peer = ssl->peerCertificatePresented();
-        if (ssl_peer) {
-          labels = getLabels();
-        }
-        origin_user = ssl->uriSanPeerCertificate();
-      }
-
-      noop_control_.BuildAuthzCheck(request_data_, labels,
-                                    filter_callbacks_->connection(), origin_user);
-      ENVOY_CONN_LOG(debug, "Called onEvent, ssl {}",
-                     filter_callbacks_->connection(), ssl_peer == true ? "yes":"no");
-      if (!noop_control_.NoopCheckDisabled()) {
-        state_ = State::Calling;
-        filter_callbacks_->connection().readDisable(true);
-        calling_check_ = true;
-        cancel_check_ = noop_control_.SendCheck(request_data_, [this](const Status &status, Response *resp) { completeCheck(status, resp); });
-        calling_check_ = false;
-        //@SM find a good place to hook this response.
-        // return state__ == State::Calling ? Network::FilterStatus::StopIteration : Network::FilterStatus::Continue;
-      }
   }
 
   void completeCheck(const Status& status, Response *resp) {
