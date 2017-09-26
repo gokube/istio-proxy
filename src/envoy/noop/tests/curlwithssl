@@ -1,7 +1,8 @@
 #!/bin/sh
 set -e
-set -x
+#set -x
 CDIR=../certs
 curl -k \
+-s -o /dev/null -w "%{http_code}\n" \
 -E ${CDIR}/clientoid.pem \
--v https://server.test.com:9090/
+ https://server.test.com:9090/

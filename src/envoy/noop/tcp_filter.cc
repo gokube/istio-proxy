@@ -111,7 +111,7 @@ class TcpInstance : public Network::Filter,
     noop_control_.BuildAuthzCheck(request_data_, labels,
                                   filter_callbacks_->connection(), origin_user);
     // @SM: Log the content of Build TCP Check
-    ENVOY_CONN_LOG(debug, "Called Noop TcpInstance(}), ssl {}",
+    ENVOY_CONN_LOG(warn, "Called Noop TcpInstance(}), ssl {}",
                    filter_callbacks_->connection(), s_ctx, ssl_peer == true ? "yes":"no");
   }
 
@@ -255,20 +255,20 @@ class TcpInstance : public Network::Filter,
 
   void initializeReadFilterCallbacks(
       Network::ReadFilterCallbacks& callbacks) override {
-    ENVOY_LOG(debug, "Called TcpInstance: {}", __func__);
+    ENVOY_LOG(warn, "Called TcpInstance: {}", __func__);
     filter_callbacks_ = &callbacks;
     filter_callbacks_->connection().addConnectionCallbacks(*this);
   }
 
   // Network::ReadFilter
   Network::FilterStatus onData(Buffer::Instance& data) override {
-    ENVOY_CONN_LOG(debug, "Called TcpInstance onRead bytes: {}",
+    ENVOY_CONN_LOG(warn, "Called TcpInstance onRead bytes: {}",
                    filter_callbacks_->connection(), data.length());
     return Network::FilterStatus::Continue;
   }
 
   Network::FilterStatus onWrite(Buffer::Instance& data) override {
-    ENVOY_CONN_LOG(debug, "Called TcpInstance onWrite bytes: {}",
+    ENVOY_CONN_LOG(warn, "Called TcpInstance onWrite bytes: {}",
                    filter_callbacks_->connection(), data.length());
     return Network::FilterStatus::Continue;
   }
@@ -293,7 +293,7 @@ class TcpInstance : public Network::Filter,
 
     noop_control_.BuildAuthzCheck(request_data_, labels,
                                   filter_callbacks_->connection(), origin_user);
-    ENVOY_CONN_LOG(debug, "Called {}, ssl {}",
+    ENVOY_CONN_LOG(warn, "Called {}, ssl {}",
                    filter_callbacks_->connection(), __func__, ssl_peer == true ? "yes":"no");
     if (!noop_control_.NoopCheckDisabled() && ssl_peer == true) {
       state_ = State::Calling;
@@ -305,7 +305,7 @@ class TcpInstance : public Network::Filter,
   }
 
   Network::FilterStatus onNewConnection() override {
-    ENVOY_CONN_LOG(debug,
+    ENVOY_CONN_LOG(warn,
                    "Called TcpInstance onNewConnection: remote {}, local {}",
                    filter_callbacks_->connection(),
                    filter_callbacks_->connection().remoteAddress().asString(),
@@ -317,15 +317,16 @@ class TcpInstance : public Network::Filter,
 
   // Network::ConnectionCallbacks
   void onEvent(Network::ConnectionEvent event) override {
-      ENVOY_LOG(debug, "Called TcpInstance onEvent: {}", enumToInt(event));
+      ENVOY_LOG(warn, "Called TcpInstance onEvent: {}", enumToInt(event));
       if (event != Network::ConnectionEvent::Connected) {
+        state_ = State::Closed;
         return;
       }
       _check_authz("onConnectedEvent");
   }
 
   void completeCheck(const Status& status, Response *resp) {
-    ENVOY_LOG(debug, "{}: {}", __func__, status.ToString());
+    ENVOY_LOG(warn, "{}: {}", __func__, status.ToString());
     if (state_ == State::Closed) {
       return;
     } 
@@ -334,7 +335,7 @@ class TcpInstance : public Network::Filter,
 
     if (!status.ok() ||
         resp->status().code() != ResponseCode::Response_Status_Code_OK) {
-      ENVOY_CONN_LOG(debug, "{}: Closing connection {}",
+      ENVOY_CONN_LOG(warn, "{}: Closing connection {}",
                      filter_callbacks_->connection(), __func__,
                      std::to_string(resp->status().code()));
       filter_callbacks_->connection().close(
