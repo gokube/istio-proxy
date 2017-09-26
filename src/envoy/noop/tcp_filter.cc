@@ -273,14 +273,8 @@ class TcpInstance : public Network::Filter,
     return Network::FilterStatus::Continue;
   }
 
-  Network::FilterStatus onNewConnection() override {
-    ENVOY_CONN_LOG(debug,
-                   "Called TcpInstance onNewConnection: remote {}, local {}",
-                   filter_callbacks_->connection(),
-                   filter_callbacks_->connection().remoteAddress().asString(),
-                   filter_callbacks_->connection().localAddress().asString());
-
-    _logData("onNewConnection");
+  void _check_authz(std::string ctx) {
+    _logData(ctx);
     bool ssl_peer = false;
     // Reports are always enabled.. And TcpReport uses attributes
     // extracted by BuildTcpCheck
@@ -301,13 +295,22 @@ class TcpInstance : public Network::Filter,
                                   filter_callbacks_->connection(), origin_user);
     ENVOY_CONN_LOG(debug, "Called {}, ssl {}",
                    filter_callbacks_->connection(), __func__, ssl_peer == true ? "yes":"no");
-    if (!noop_control_.NoopCheckDisabled()) {
+    if (!noop_control_.NoopCheckDisabled() && ssl_peer == true) {
       state_ = State::Calling;
       filter_callbacks_->connection().readDisable(true);
       calling_check_ = true;
       cancel_check_ = noop_control_.SendCheck(request_data_, [this](const Status &status, Response *resp) { completeCheck(status, resp); });
       calling_check_ = false;
     }
+  }
+
+  Network::FilterStatus onNewConnection() override {
+    ENVOY_CONN_LOG(debug,
+                   "Called TcpInstance onNewConnection: remote {}, local {}",
+                   filter_callbacks_->connection(),
+                   filter_callbacks_->connection().remoteAddress().asString(),
+                   filter_callbacks_->connection().localAddress().asString());
+    _check_authz("onNewConnection");
     return state_ == State::Calling ? Network::FilterStatus::StopIteration
                                     : Network::FilterStatus::Continue;
   }
@@ -315,6 +318,10 @@ class TcpInstance : public Network::Filter,
   // Network::ConnectionCallbacks
   void onEvent(Network::ConnectionEvent event) override {
       ENVOY_LOG(debug, "Called TcpInstance onEvent: {}", enumToInt(event));
+      if (event != Network::ConnectionEvent::Connected) {
+        return;
+      }
+      _check_authz("onConnectedEvent");
   }
 
   void completeCheck(const Status& status, Response *resp) {
