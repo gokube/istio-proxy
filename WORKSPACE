@@ -16,7 +16,7 @@
 #
 
 load(
-    "//src/envoy/noop:repositories.bzl",
+    "//src/envoy/authz:repositories.bzl",
     "dikastes_client_repositories",
 )
 

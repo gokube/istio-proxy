@@ -30,7 +30,7 @@ usage: ${BASH_SOURCE[0]} [options ...]"
     -d ... envoy certs dir path
     -e ... envoy binary path
     -l ... debug level
-    -n ... noop grpc server
+    -z ... authz grpc server
     -m ... mixer server address
     -p ... listening port
     -t ... envoy config template file path
@@ -38,28 +38,28 @@ EOF
   exit 2
 }
 
-ENVOY="$ROOT/bazel-bin/src/envoy/noop/envoy"
-TEMPLATE="$ROOT/src/envoy/noop/envoy.conf.template"
-CONFIG="$ROOT/src/envoy/noop/envoy.conf"
-CERTDIR="$ROOT/src/envoy/noop/certs"
+ENVOY="$ROOT/bazel-bin/src/envoy/authz/envoy"
+TEMPLATE="$ROOT/src/envoy/authz/envoy.conf.template"
+CONFIG="$ROOT/src/envoy/authz/envoy.conf"
+CERTDIR="$ROOT/src/envoy/authz/certs"
 DEBUG=''
 
 PORT='9090'
-NOOP_SERVER='localhost:9091'
+AUTHZ_SERVER='localhost:9091'
 MIXER_SERVER='localhost:9092'
 BACKEND='localhost:8080'
 
-while getopts :a:c:e:l:m:p:t: arg; do
+while getopts :a:c:e:l:m:p:t:z: arg; do
   case ${arg} in
     a) BACKEND="${OPTARG}";;
     c) CONFIG="${OPTARG}";;
     d) CERTDIR="${OPTARG}";;
     e) ENVOY="${OPTARG}";;
-    n) NOOP_SERVER="${OPTARG}";;
     m) MIXER_SERVER="${OPTARG}";;
     l) DEBUG="-l ${OPTARG}";;
     p) PORT="${OPTARG}";;
     t) TEMPLATE="${OPTARG}";;
+    z) AUTHZ_SERVER="${OPTARG}";;
     *) usage "Invalid option: -${OPTARG}";;
   esac
 done
@@ -67,7 +67,7 @@ done
 sed -e "s|\${PORT}|${PORT}|g" \
     -e "s|\${BACKEND}|${BACKEND}|g" \
     -e "s|\${CERTDIR}|${CERTDIR}|g" \
-    -e "s|\${NOOP_SERVER}|${NOOP_SERVER}|g" \
+    -e "s|\${AUTHZ_SERVER}|${AUTHZ_SERVER}|g" \
     -e "s|\${MIXER_SERVER}|${MIXER_SERVER}|g" \
     "${TEMPLATE}" > "${CONFIG}"
 

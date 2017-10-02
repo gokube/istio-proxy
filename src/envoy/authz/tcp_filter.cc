@@ -21,40 +21,23 @@
 #include "envoy/registry/registry.h"
 #include "envoy/server/instance.h"
 #include "server/config/network/http_connection_manager.h"
-#include "src/envoy/noop/config.h"
-#include "src/envoy/noop/noop_control.h"
+#include "src/envoy/authz/config.h"
+#include "src/envoy/authz/authz_control.h"
 #include "common/ssl/connection_impl.h"
-#include "openssl/obj.h"
-#include "openssl/asn1.h"
-#include "openssl/x509v3.h"
-#include "openssl/bio.h"
 
 using ::google::protobuf::util::Status;
-using ::istio::v1::authz::Response;
 using StatusCode = ::google::protobuf::util::error::Code;
+using ::istio::v1::authz::Response;
 using ResponseCode = ::istio::v1::authz::Response_Status_Code;
 
 namespace Envoy {
 namespace Network {
-namespace Noop {
-
-namespace {
-
-#define TAGCLAIMLABEL 1
-#define SIZETYLEN (sizeof(uint8_t) * 2)
-int priv_nid = -1;
-int getNid() {
-    if (priv_nid == -1) {
-      priv_nid = OBJ_create("1.3.6.1.4.1.94567.1.1.1", "kvAutz", "kvAutz");
-    }
-    return priv_nid;
-}
-}
+namespace Authz {
 
 class TcpConfig : public Logger::Loggable<Logger::Id::filter> {
  private:
   Upstream::ClusterManager& cm_;
-  NoopConfig noop_config_;
+  AuthzConfig authz_config_;
   ThreadLocal::SlotPtr tls_;
 
  public:
@@ -62,17 +45,17 @@ class TcpConfig : public Logger::Loggable<Logger::Id::filter> {
             Server::Configuration::FactoryContext& context)
       : cm_(context.clusterManager()),
         tls_(context.threadLocal().allocateSlot()) {
-    noop_config_.Load(config);
+    authz_config_.Load(config);
     Runtime::RandomGenerator& random = context.random();
     tls_->set(
         [this, &random](Event::Dispatcher& dispatcher)
             -> ThreadLocal::ThreadLocalObjectSharedPtr {
               return ThreadLocal::ThreadLocalObjectSharedPtr(
-                  new NoopControl(noop_config_, cm_, dispatcher, random));
+                  new AuthzControl(authz_config_, cm_, dispatcher, random));
             });
   }
 
-  NoopControl& noop_control() { return tls_->getTyped<NoopControl>(); }
+  AuthzControl& authz_control() { return tls_->getTyped<AuthzControl>(); }
 };
 
 typedef std::shared_ptr<TcpConfig> TcpConfigPtr;
@@ -83,13 +66,12 @@ class TcpInstance : public Network::Filter,
  private:
   enum class State { NotStarted, Calling, Completed, Closed };
 
-  istio::noop_client::CancelFunc cancel_check_;
-  NoopControl& noop_control_;
+  istio::authz_client::CancelFunc cancel_check_;
+  AuthzControl& authz_control_;
   std::shared_ptr<AuthzRequestData> request_data_;
   Network::ReadFilterCallbacks* filter_callbacks_{};
   State state_{State::NotStarted};
   bool calling_check_{};
-  int nid_;
 
   void _logData(std::string s_ctx) {
     bool ssl_peer = false;
@@ -108,145 +90,22 @@ class TcpInstance : public Network::Filter,
       origin_user = ssl->uriSanPeerCertificate();
     }
 
-    noop_control_.BuildAuthzCheck(request_data_, labels,
+    authz_control_.BuildAuthzCheck(request_data_, labels,
                                   filter_callbacks_->connection(), origin_user);
     // @SM: Log the content of Build TCP Check
-    ENVOY_CONN_LOG(warn, "Called Noop TcpInstance(}), ssl {}",
+    ENVOY_CONN_LOG(warn, "Called Authz TcpInstance(}), ssl {}",
                    filter_callbacks_->connection(), s_ctx, ssl_peer == true ? "yes":"no");
-  }
-
-  int parse_asn1_str_(const unsigned char *start, std::string &rval)
-  {
-    uint8_t t, l;
-
-    t = static_cast<uint8_t>(*start);
-    if (t != V_ASN1_PRINTABLESTRING) {
-      ENVOY_LOG(debug, "{}: Not a string at {} ({})", __func__, start, t);
-      return -1;
-    }
-    start++;
-    l = static_cast<uint8_t>(*start);
-    start++;
-    for (long i = 0; i < l; i++) {
-      rval += static_cast<char>(start[i]);
-    }
-    return SIZETYLEN + l;
-  }
-
-  int parse_context_spec_label(const unsigned char *start, long *omax, std::map<std::string, std::string> &result) {
-    std::string key, val;
-    long slen;
-    int ptag, pclass, rval;
-    int bcount = 0;
-
-    rval = ASN1_get_object(&start, &slen, &ptag, &pclass, *omax);
-    if (rval & 0x80) {
-      ENVOY_LOG(debug, "{}: Bad object header", __func__);
-      return -1;
-    }
-    if (ptag != V_ASN1_SEQUENCE) {
-      ENVOY_LOG(debug, "{}: tag {} pclass: {} invalid!", __func__, ptag, pclass);
-      return -1;
-    }
-    bcount += SIZETYLEN;
-    // Start of the key
-    int l = parse_asn1_str_(start, key);
-    if (l <= 0) {
-      return -1;
-    }
-    start += l;
-    bcount += l;
-
-    if (bcount >= *omax) {
-      ENVOY_LOG(debug, "{}: bcount {} >= max {}", __func__, bcount, *omax);
-      return -1;
-    }
-
-    // Must have the value now
-    l = parse_asn1_str_(start, val);
-    if (l <= 0) {
-      return -1;
-    }
-    start += l;
-    bcount += l;
-    result.insert(std::map<std::string, std::string>::value_type(key, val));
-
-    *omax -= bcount;
-    ENVOY_LOG(debug, "{}: k,v is {}: {} (omax: {})", __func__, key, val, *omax);
-    return bcount;
-  }
-
-  std::map<std::string, std::string> parse_claims(ASN1_OCTET_STRING *data) {
-    const unsigned char *start;
-    long slen;
-    int ptag, pclass, rval;
-    std::map<std::string, std::string> result;
-    uint8_t classntag;
-
-    start = data->data;
-/*
-    ENVOY_LOG(debug, "len: {}, type: {}, flags: {}, start: {}", data->length, data->type, data->flags, start);
-    for (int i = 0; i < data->length; i++) {
-       ENVOY_LOG(debug, "{}", data->data[i]);
-    }
-*/
-    rval = ASN1_get_object(&start, &slen, &ptag, &pclass, data->length);
-    if (rval & 0x80) {
-      ENVOY_LOG(debug, "{}: Bad object header", __func__);
-      return result;
-    }
-    if (ptag != V_ASN1_SEQUENCE) {
-      ENVOY_LOG(debug, "{}: tag {} pclass: {} invalid!", __func__, ptag, pclass);
-      return result;
-    }
-
-    long omax = slen;
-    int l;
-    for (classntag = static_cast<uint8_t>(*start);
-         omax > 0  && classntag == (V_ASN1_CONTEXT_SPECIFIC|TAGCLAIMLABEL);
-         start += l, classntag = static_cast<uint8_t>(*start)) {
-
-      start += SIZETYLEN;
-      omax -= SIZETYLEN;
-      l = parse_context_spec_label(start, &omax, result);
-      if (l <= 0) {
-        return std::map<std::string, std::string>();
-      }
-    }
-
-    return result;
   }
 
   std::map<std::string, std::string> getLabels() {
     Ssl::ConnectionImpl *ssl_impl = dynamic_cast<Ssl::ConnectionImpl*>(filter_callbacks_->connection().ssl());
     bssl::UniquePtr<X509> cert(SSL_get_peer_certificate(ssl_impl->rawSslForTest()));
-    std::map<std::string, std::string> result;
-
-    if (!cert) {
-      ENVOY_LOG(debug, "No cert: {}", __func__);
-      return result;
-    }
-
-    int azRef = X509_get_ext_by_NID(cert.get(), nid_, -1);
-    if (azRef < 0) {
-      ENVOY_LOG(debug, "{} no kvref, nid: {}, {}", __func__, nid_, azRef);
-      return result;
-    }
-
-    X509_EXTENSION *ext = X509_get_ext(cert.get(), azRef);
-    if (!ext) {
-      ENVOY_LOG(debug, "no ext: {}", __func__);
-      return result;
-    }
-
-    result = parse_claims(X509_EXTENSION_get_data(ext));
-    return result;
+    return authz_control_.getLabels(cert);
   }
 
  public:
-  TcpInstance(TcpConfigPtr config) : noop_control_(config->noop_control()) {
-    nid_ = getNid();
-    ENVOY_LOG(debug, "Called TcpInstance: {} {}", __func__, nid_);
+  TcpInstance(TcpConfigPtr config) : authz_control_(config->authz_control()) {
+    ENVOY_LOG(debug, "Called TcpInstance: {}", __func__);
   }
 
   ~TcpInstance() {
@@ -291,17 +150,20 @@ class TcpInstance : public Network::Filter,
       origin_user = ssl->uriSanPeerCertificate();
     }
 
-    noop_control_.BuildAuthzCheck(request_data_, labels,
+    authz_control_.BuildAuthzCheck(request_data_, labels,
                                   filter_callbacks_->connection(), origin_user);
     ENVOY_CONN_LOG(warn, "Called {}, ssl {}",
                    filter_callbacks_->connection(), __func__, ssl_peer == true ? "yes":"no");
-    if (!noop_control_.NoopCheckDisabled() && ssl_peer == true) {
-      state_ = State::Calling;
-      filter_callbacks_->connection().readDisable(true);
-      calling_check_ = true;
-      cancel_check_ = noop_control_.SendCheck(request_data_, [this](const Status &status, Response *resp) { completeCheck(status, resp); });
-      calling_check_ = false;
+
+    if (authz_control_.AuthzCheckDisabled() || ssl_peer == false) {
+      return;
     }
+
+    state_ = State::Calling;
+    filter_callbacks_->connection().readDisable(true);
+    calling_check_ = true;
+    cancel_check_ = authz_control_.SendCheck(request_data_, [this](const Status &status, Response *resp) { completeCheck(status, resp); });
+    calling_check_ = false;
   }
 
   Network::FilterStatus onNewConnection() override {
@@ -351,30 +213,30 @@ class TcpInstance : public Network::Filter,
   void onBelowWriteBufferLowWatermark() override {}
 };
 
-}  // namespace Noop
+}  // namespace Authz
 }  // namespace Network
 
 namespace Server {
 namespace Configuration {
 
-class TcpNoopFilterFactory : public NamedNetworkFilterConfigFactory {
+class TcpAuthzFilterFactory : public NamedNetworkFilterConfigFactory {
  public:
   NetworkFilterFactoryCb createFilterFactory(const Json::Object& config,
                                              FactoryContext& context) override {
-    Network::Noop::TcpConfigPtr tcp_config(
-        new Network::Noop::TcpConfig(config, context));
+    Network::Authz::TcpConfigPtr tcp_config(
+        new Network::Authz::TcpConfig(config, context));
     return [tcp_config](Network::FilterManager& filter_manager) -> void {
-      std::shared_ptr<Network::Noop::TcpInstance> instance =
-          std::make_shared<Network::Noop::TcpInstance>(tcp_config);
+      std::shared_ptr<Network::Authz::TcpInstance> instance =
+          std::make_shared<Network::Authz::TcpInstance>(tcp_config);
       filter_manager.addReadFilter(Network::ReadFilterSharedPtr(instance));
       filter_manager.addWriteFilter(Network::WriteFilterSharedPtr(instance));
     };
   }
-  std::string name() override { return "noop"; }
+  std::string name() override { return "authz"; }
   NetworkFilterType type() override { return NetworkFilterType::Both; }
 };
 
-static Registry::RegisterFactory<TcpNoopFilterFactory,
+static Registry::RegisterFactory<TcpAuthzFilterFactory,
                                  NamedNetworkFilterConfigFactory>
     register_;
 

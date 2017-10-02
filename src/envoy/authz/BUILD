@@ -28,13 +28,14 @@ load(
 envoy_cc_library(
     name = "filter_lib",
     srcs = [
+        "authz_control.cc",
+        "authz_control.h",
         "config.cc",
         "config.h",
-        "noop_control.cc",
-        "noop_control.h",
-        "tcp_filter.cc",
         "grpc_transport.cc",
-        "grpc_transport.h"
+        "grpc_transport.h",
+        "http_filter.cc",
+        "tcp_filter.cc"
     ],
     repository = "@envoy",
     deps = [

@@ -21,20 +21,20 @@
 #include <unordered_map>
 
 #include "common/common/logger.h"
+#include "common/http/headers.h"
 #include "envoy/thread_local/thread_local.h"
 #include "envoy/upstream/cluster_manager.h"
-#include "include/noop/client.h"
-#include "src/envoy/noop/config.h"
-#include "src/envoy/noop/grpc_transport.h"
+#include "include/authz/client.h"
+#include "src/envoy/authz/config.h"
+#include "src/envoy/authz/grpc_transport.h"
+#include "openssl/obj.h"
+#include "openssl/asn1.h"
+#include "openssl/x509v3.h"
+#include "openssl/bio.h"
 
 namespace Envoy {
 namespace Network {
-namespace Noop {
-
-struct NetworkRequestData {
-     ::istio::mixer_client::Attributes attributes;
-};
-typedef std::shared_ptr<NetworkRequestData> NetworkRequestDataPtr;
+namespace Authz {
 
 struct AuthzRequestData {
      ::istio::v1::authz::Request request;
@@ -44,23 +44,23 @@ typedef std::shared_ptr<AuthzRequestData> AuthzRequestDataPtr;
 // The tcp client class to control TCP requests.
 // It has Check() to validate if a request can be processed.
 // At the end of request, call Report().
-class NoopControl final : public ThreadLocal::ThreadLocalObject,
+class AuthzControl final : public ThreadLocal::ThreadLocalObject,
                           public Logger::Loggable<Logger::Id::filter> {
  public:
   // The constructor.
-  NoopControl(const NoopConfig& noop_config, Upstream::ClusterManager& cm,
+  AuthzControl(const AuthzConfig& authz_config, Upstream::ClusterManager& cm,
               Event::Dispatcher& dispatcher, Runtime::RandomGenerator& random);
 
-  // Build check request attributes for Network.
-  void BuildNetworkCheck(NetworkRequestDataPtr request_data,
-                     std::map<std::string, std::string> attrs,
-                     Network::Connection& connection,
-                     const std::string& source_user) const;
-
+  // Build check request for Network layer
   void BuildAuthzCheck(AuthzRequestDataPtr request_data,
-                       std::map<std::string, std::string> &labels,
-                       Network::Connection& connection,
+                       const std::map<std::string, std::string> &labels,
+                       const Network::Connection& connection,
                        const std::string& source_user) const;
+
+  void BuildAuthzHttpCheck(AuthzRequestDataPtr request_data, Envoy::Http::HeaderMap &headers,
+			   const std::map<std::string, std::string> &labels,
+                           const Network::Connection* connection,
+                           const std::string& source_user) const;
 /*
   @SM TBD: may need this: Make remote report call.
   // Build report request attributs for Network.
@@ -74,25 +74,32 @@ class NoopControl final : public ThreadLocal::ThreadLocalObject,
   // void SendReport(HttpRequestDataPtr request_data);
 */
   // Make remote check call.
-  istio::noop_client::CancelFunc SendCheck(
-      AuthzRequestDataPtr request_data, ::istio::noop_client::DoneFunc on_done);
+  istio::authz_client::CancelFunc SendCheck(
+      AuthzRequestDataPtr request_data, ::istio::authz_client::DoneFunc on_done);
 
   // See if check calls are disabled for Network proxy
-  bool NoopCheckDisabled() const {
-    return noop_config_.disable_attribute_check;
+  bool AuthzCheckDisabled() const {
+    return authz_config_.disable_check;
   }
+
+  std::map<std::string, std::string> getLabels(const bssl::UniquePtr<X509> &cert);
 
  private:
   // Envoy cluster manager for making gRPC calls.
   Upstream::ClusterManager& cm_;
   // The dikastes client
-  std::unique_ptr<::istio::noop_client::NoopClient> noop_client_;
-  // The noop config
-  const NoopConfig& noop_config_;
+  std::unique_ptr<::istio::authz_client::AuthzClient> authz_client_;
+  // The authz config
+  const AuthzConfig& authz_config_;
+  std::map<std::string, std::string> labels_;
+  int nid_;
   // @SM TBD CheckTransport::AsyncClientPtr check_client_;
   // @SM TBD ReportTransport::AsyncClientPtr report_client_;
+  void BuildCommonChecks(AuthzRequestDataPtr request_data,
+			 const std::map<std::string, std::string> &labels,
+                         const std::string& source_user) const;
 };
 
-}  // namespace Noop 
+}  // namespace Authz 
 }  // namespace Network 
 }  // namespace Envoy

@@ -24,21 +24,21 @@
 
 namespace Envoy {
 namespace Network {
-namespace Noop {
+namespace Authz {
 
-// A config for noop filter
-struct NoopConfig {
+// A config for authz filter
+struct AuthzConfig {
   // These static attributes will be matched from the cert. 
-  std::map<std::string, std::string> noop_attributes;
+  std::map<std::string, std::string> authz_attributes;
 
   // if value is true then let un-matched traffic through
-  bool disable_attribute_check;
+  bool disable_check;
 
   // Load the config from envoy config.
   void Load(const Json::Object& json);
 
 };
 
-}  // namespace Noop 
+}  // namespace Authz 
 }  // namespace Network
 }  // namespace Envoy

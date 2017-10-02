@@ -13,16 +13,16 @@
  * limitations under the License.
  */
 
-#include "src/envoy/noop/config.h"
+#include "src/envoy/authz/config.h"
 
 namespace Envoy {
 namespace Network {
-namespace Noop {
+namespace Authz {
 namespace {
 
 // The Json object name for static attributes.
-const std::string kNoopAttributes("noop_attributes");
-const std::string kDisableAttrCheck("noop_disable_check");
+const std::string kAuthzAttributes("authz_attributes");
+const std::string kDisableAttrCheck("disable_check");
 /*
 void ReadString(const Json::Object& json, const std::string& name,
                 std::string* value) {
@@ -45,12 +45,12 @@ void ReadStringMap(const Json::Object& json, const std::string& name,
 
 }  // namespace
 
-void NoopConfig::Load(const Json::Object& json) {
-  ReadStringMap(json, kNoopAttributes, &noop_attributes);
+void AuthzConfig::Load(const Json::Object& json) {
+  ReadStringMap(json, kAuthzAttributes, &authz_attributes);
 
-  disable_attribute_check = json.getBoolean(kDisableAttrCheck, false);
+  disable_check = json.getBoolean(kDisableAttrCheck, false);
 }
 
-}  // namespace Noop 
+}  // namespace Authz 
 }  // namespace Network 
 }  // namespace Envoy

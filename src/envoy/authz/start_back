@@ -1,0 +1,7 @@
+#!/bin/bash
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
+ENVOY="$ROOT/bazel-bin/src/envoy/authz/envoy"
+CONFIG="$ROOT/src/envoy/authz/envoy-back.conf"
+DEBUG="-l info"
+#DEBUG=''
+"${ENVOY}" -c "${CONFIG}" "${DEBUG}" --base-id 2

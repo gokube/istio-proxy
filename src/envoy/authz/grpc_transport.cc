@@ -12,14 +12,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include "src/envoy/noop/grpc_transport.h"
+#include "src/envoy/authz/grpc_transport.h"
 
 using ::google::protobuf::util::Status;
 using StatusCode = ::google::protobuf::util::error::Code;
 
 namespace Envoy {
 namespace Network {
-namespace Noop {
+namespace Authz {
 namespace {
 
 // gRPC request timeout
@@ -37,7 +37,7 @@ const LowerCaseString kB3Flags("x-b3-flags");
 const LowerCaseString kOtSpanContext("x-ot-span-context");
 
 // The name for the mixer server cluster.
-const char* kMixerServerClusterName = "noop_server";
+const char* kMixerServerClusterName = "authz_server";
 
 inline void CopyHeaderEntry(const HeaderEntry* entry,
                             const LowerCaseString& key,
@@ -49,8 +49,8 @@ inline void CopyHeaderEntry(const HeaderEntry* entry,
 }
 */
 
-// The name for the noop server cluster.
-const char* kNoopServerClusterName = "noop_server";
+// The name for the authz server cluster.
+const char* kAuthzServerClusterName = "authz_server";
 
 }  // namespace
 
@@ -58,7 +58,7 @@ template <class RequestType, class ResponseType>
 GrpcTransport<RequestType, ResponseType>::GrpcTransport(
     AsyncClientPtr async_client, const RequestType& request,
     ResponseType* response,
-    istio::noop_client::DoneFunc on_done)
+    istio::authz_client::DoneFunc on_done)
     : async_client_(std::move(async_client)),
       response_(response),
       on_done_(on_done),
@@ -98,12 +98,12 @@ template <class RequestType, class ResponseType>
 typename GrpcTransport<RequestType, ResponseType>::Func
 GrpcTransport<RequestType, ResponseType>::GetFunc(Upstream::ClusterManager& cm) {
   return [&cm](const RequestType& request, ResponseType* response,
-               istio::noop_client::DoneFunc
-               on_done) -> istio::noop_client::CancelFunc {
+               istio::authz_client::DoneFunc
+               on_done) -> istio::authz_client::CancelFunc {
     auto transport = new GrpcTransport<RequestType, ResponseType>(
         typename GrpcTransport<RequestType, ResponseType>::AsyncClientPtr(
             new Grpc::AsyncClientImpl<RequestType, ResponseType>(
-                cm, kNoopServerClusterName)),
+                cm, kAuthzServerClusterName)),
         request, response, on_done);
     return [transport]() { transport->request_->cancel(); };
   };
@@ -137,6 +137,6 @@ template ReportTransport::Func ReportTransport::GetFunc(
     Upstream::ClusterManager& cm, const HeaderMap* headers);
 */
 
-}  // namespace Noop 
+}  // namespace Authz 
 }  // namespace Network 
 }  // namespace Envoy

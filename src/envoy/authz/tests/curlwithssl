@@ -1,8 +1,11 @@
 #!/bin/sh
 set -e
-#set -x
+set -x
+if [ "$1" != "" ]; then
+  HTTPPATH=$1
+fi
 CDIR=../certs
 curl -k \
 -s -o /dev/null -w "%{http_code}\n" \
 -E ${CDIR}/clientoid.pem \
- https://server.test.com:9090/
+ https://server.test.com:9090/${HTTPPATH}
