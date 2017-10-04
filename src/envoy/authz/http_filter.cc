@@ -31,8 +31,8 @@
 
 using ::google::protobuf::util::Status;
 using StatusCode = ::google::protobuf::util::error::Code;
-using ::istio::v1::authz::Response;
-using ResponseCode = ::istio::v1::authz::Response_Status_Code;
+using ::authz::v1::Response;
+using ResponseCode = ::authz::v1::Response_Status_Code;
 
 namespace Envoy {
 namespace Http {
@@ -124,7 +124,7 @@ class Instance : public Http::StreamDecoderFilter,
  private:
   Network::Authz::AuthzControl& authz_control_;
   std::shared_ptr<Network::Authz::AuthzRequestData> request_data_;
-  istio::authz_client::CancelFunc cancel_check_;
+  Envoy::Network::Authz_client::CancelFunc cancel_check_;
 
   enum State { NotStarted, Calling, Complete, Responded };
   State state_;

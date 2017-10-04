@@ -39,8 +39,8 @@ envoy_cc_library(
     ],
     repository = "@envoy",
     deps = [
+        "//src/envoy/authz/common:filter_lib",
         "//src/envoy/mixer:filter_lib",
-        "//external:mixer_client_lib",
         "@envoy//source/common/grpc:rpc_channel_lib",
         "@envoy//source/exe:envoy_common_lib",
     ],

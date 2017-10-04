@@ -58,7 +58,7 @@ template <class RequestType, class ResponseType>
 GrpcTransport<RequestType, ResponseType>::GrpcTransport(
     AsyncClientPtr async_client, const RequestType& request,
     ResponseType* response,
-    istio::authz_client::DoneFunc on_done)
+    Envoy::Network::Authz_client::DoneFunc on_done)
     : async_client_(std::move(async_client)),
       response_(response),
       on_done_(on_done),
@@ -98,8 +98,8 @@ template <class RequestType, class ResponseType>
 typename GrpcTransport<RequestType, ResponseType>::Func
 GrpcTransport<RequestType, ResponseType>::GetFunc(Upstream::ClusterManager& cm) {
   return [&cm](const RequestType& request, ResponseType* response,
-               istio::authz_client::DoneFunc
-               on_done) -> istio::authz_client::CancelFunc {
+               Envoy::Network::Authz_client::DoneFunc
+               on_done) -> Envoy::Network::Authz_client::CancelFunc {
     auto transport = new GrpcTransport<RequestType, ResponseType>(
         typename GrpcTransport<RequestType, ResponseType>::AsyncClientPtr(
             new Grpc::AsyncClientImpl<RequestType, ResponseType>(
@@ -113,7 +113,7 @@ GrpcTransport<RequestType, ResponseType>::GetFunc(Upstream::ClusterManager& cm) 
 template <>
 const google::protobuf::MethodDescriptor& CheckTransport::descriptor() {
   static const google::protobuf::MethodDescriptor* check_descriptor =
-      istio::v1::authz::Authorization::descriptor()->FindMethodByName("Check");
+      authz::v1::Authorization::descriptor()->FindMethodByName("Check");
   ASSERT(check_descriptor);
 
   return *check_descriptor;
@@ -122,7 +122,7 @@ const google::protobuf::MethodDescriptor& CheckTransport::descriptor() {
 template <>
 const google::protobuf::MethodDescriptor& ReportTransport::descriptor() {
   static const google::protobuf::MethodDescriptor* report_descriptor =
-      istio::v1::authz::descriptor()->FindMethodByName("Report");
+      authz::v1::descriptor()->FindMethodByName("Report");
   ASSERT(report_descriptor);
 
   return *report_descriptor;

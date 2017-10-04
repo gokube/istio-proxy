@@ -24,7 +24,7 @@
 #include "common/http/headers.h"
 #include "envoy/thread_local/thread_local.h"
 #include "envoy/upstream/cluster_manager.h"
-#include "include/authz/client.h"
+#include "src/envoy/authz/common/client.h"
 #include "src/envoy/authz/config.h"
 #include "src/envoy/authz/grpc_transport.h"
 #include "openssl/obj.h"
@@ -37,7 +37,7 @@ namespace Network {
 namespace Authz {
 
 struct AuthzRequestData {
-     ::istio::v1::authz::Request request;
+     ::authz::v1::Request request;
 };
 typedef std::shared_ptr<AuthzRequestData> AuthzRequestDataPtr;
 
@@ -74,8 +74,8 @@ class AuthzControl final : public ThreadLocal::ThreadLocalObject,
   // void SendReport(HttpRequestDataPtr request_data);
 */
   // Make remote check call.
-  istio::authz_client::CancelFunc SendCheck(
-      AuthzRequestDataPtr request_data, ::istio::authz_client::DoneFunc on_done);
+  Envoy::Network::Authz_client::CancelFunc SendCheck(
+      AuthzRequestDataPtr request_data, ::Envoy::Network::Authz_client::DoneFunc on_done);
 
   // See if check calls are disabled for Network proxy
   bool AuthzCheckDisabled() const {
@@ -88,7 +88,7 @@ class AuthzControl final : public ThreadLocal::ThreadLocalObject,
   // Envoy cluster manager for making gRPC calls.
   Upstream::ClusterManager& cm_;
   // The dikastes client
-  std::unique_ptr<::istio::authz_client::AuthzClient> authz_client_;
+  std::unique_ptr<::Envoy::Network::Authz_client::AuthzClient> authz_client_;
   // The authz config
   const AuthzConfig& authz_config_;
   std::map<std::string, std::string> labels_;

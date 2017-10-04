@@ -24,9 +24,8 @@
 using ::google::protobuf::util::Status;
 using ::google::protobuf::Map;
 using StatusCode = ::google::protobuf::util::error::Code;
-using ::istio::mixer_client::Attributes;
-using ::istio::authz_client::DoneFunc;
-using ::istio::authz_client::AuthzClientOptions;
+using ::Envoy::Network::Authz_client::DoneFunc;
+using ::Envoy::Network::Authz_client::AuthzClientOptions;
 using ::Envoy::Http::HeaderEntry;
 using ::Envoy::Http::HeaderMap;
 
@@ -208,43 +207,21 @@ AuthzControl::AuthzControl(const AuthzConfig& authz_config,
     return random.uuid();
   };
 
-  authz_client_ = ::istio::authz_client::CreateAuthzClient(options);
+  authz_client_ = ::Envoy::Network::Authz_client::CreateAuthzClient(options);
   nid_ = getNid();
 }
 
-istio::authz_client::CancelFunc AuthzControl::SendCheck(
+Envoy::Network::Authz_client::CancelFunc AuthzControl::SendCheck(
     AuthzRequestDataPtr request_data, DoneFunc on_done) {
   if (!authz_client_) {
     on_done(
-        Status(StatusCode::INVALID_ARGUMENT, "Missing mixer_server cluster"), nullptr);
+        Status(StatusCode::INVALID_ARGUMENT, "Missing authz_server cluster"), nullptr);
     return nullptr;
   }
   ENVOY_LOG(debug, "Send Check:");
   return authz_client_->Check(request_data->request,
                              CheckTransport::GetFunc(cm_), on_done);
 }
-
-/*
-void AuthzControl::BuildNetworkCheck(NetworkRequestDataPtr request_data,
-				    std::map<std::string, std::string> attrs,
-                                    Network::Connection& connection,
-                                    const std::string& source_user) const {
-  SetStringAttribute(kSourceUser, source_user, &request_data->attributes);
-
-  const Network::Address::Ip* remote_ip = connection.remoteAddress().ip();
-  if (remote_ip) {
-    SetIPAttribute(kSourceIp, *remote_ip, &request_data->attributes);
-    SetInt64Attribute(kSourcePort, remote_ip->port(),
-                      &request_data->attributes);
-  }
-
-  request_data->attributes.attributes[kContextTime] =
-      Attributes::TimeValue(std::chrono::system_clock::now());
-
-  SetStringAttribute(kContextProtocol, "tcp", &request_data->attributes);
-  request_data->attributes.attributes[kRequestLabels] = Attributes::StringMapValue(std::move(attrs));
-}
-*/
 
 void AuthzControl::BuildCommonChecks(AuthzRequestDataPtr request_data,
 				     const std::map<std::string, std::string> &labels,
@@ -253,7 +230,7 @@ void AuthzControl::BuildCommonChecks(AuthzRequestDataPtr request_data,
 
   extract_spiffy_attr(source_user, spiffy_attrs);
   ENVOY_LOG(debug, "Calling to setup the atts {}", source_user);
-  ::istio::v1::authz::Request_Subject* subject = request_data->request.mutable_subject();
+  ::authz::v1::Request_Subject* subject = request_data->request.mutable_subject();
 
   if (spiffy_attrs.find(kAccount) != spiffy_attrs.end()) {
     subject->set_service_account(spiffy_attrs[kAccount]);
@@ -271,7 +248,7 @@ void AuthzControl::BuildAuthzCheck(AuthzRequestDataPtr request_data,
                                    const std::string& source_user) const {
   BuildCommonChecks(request_data, labels, source_user);
 
-  ::istio::v1::authz::Request_Subject* subject = request_data->request.mutable_subject();
+  ::authz::v1::Request_Subject* subject = request_data->request.mutable_subject();
   subject->set_ip_address(connection.remoteAddress().ip()->addressAsString());
   subject->set_port(std::to_string(connection.remoteAddress().ip()->port()));
 }
@@ -286,8 +263,8 @@ void AuthzControl::BuildAuthzHttpCheck(AuthzRequestDataPtr request_data, HeaderM
   const HeaderEntry *entryPath = headers.Path();
   const HeaderEntry *entryMethod = headers.Method();
 
-  ::istio::v1::authz::Request_Action* action = request_data->request.mutable_action();
-  ::istio::v1::authz::HTTPRequest *httpreq = action->mutable_http();
+  ::authz::v1::Request_Action* action = request_data->request.mutable_action();
+  ::authz::v1::HTTPRequest *httpreq = action->mutable_http();
   if (entryPath != nullptr) {
     std::string str(entryPath->value().c_str(), entryPath->value().size());
     httpreq->set_path(str);
@@ -297,7 +274,7 @@ void AuthzControl::BuildAuthzHttpCheck(AuthzRequestDataPtr request_data, HeaderM
     httpreq->set_method(str);
   }
 
-  ::istio::v1::authz::Request_Subject* subject = request_data->request.mutable_subject();
+  ::authz::v1::Request_Subject* subject = request_data->request.mutable_subject();
   subject->set_ip_address(connection->remoteAddress().ip()->addressAsString());
   subject->set_port(std::to_string(connection->remoteAddress().ip()->port()));
 }

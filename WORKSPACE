@@ -16,19 +16,20 @@
 #
 
 load(
-    "//src/envoy/authz:repositories.bzl",
-    "dikastes_client_repositories",
+    "//src/envoy/mixer:repositories.bzl",
+    "mixer_client_repositories",
 )
 
-dikastes_client_repositories()
+mixer_client_repositories()
 
 load(
-    "@dikastesclient_git//:repositories.bzl",
+    "@mixerclient_git//:repositories.bzl",
     "googleapis_repositories",
     "mixerapi_repositories",
 )
 
 googleapis_repositories()
+
 mixerapi_repositories()
 
 bind(

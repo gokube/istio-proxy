@@ -24,7 +24,7 @@
 #include "envoy/grpc/rpc_channel.h"
 
 #include "envoy/upstream/cluster_manager.h"
-#include "include/authz/client.h"
+#include "src/envoy/authz/common/client.h"
 
 namespace Envoy {
 namespace Network {
@@ -35,9 +35,9 @@ template <class RequestType, class ResponseType>
 class GrpcTransport : public Grpc::AsyncRequestCallbacks<ResponseType>,
                       public Logger::Loggable<Logger::Id::http> {
  public:
-  using Func = std::function<istio::authz_client::CancelFunc(
+  using Func = std::function<Envoy::Network::Authz_client::CancelFunc(
       const RequestType& request, ResponseType* response,
-      istio::authz_client::DoneFunc on_done)>;
+      Envoy::Network::Authz_client::DoneFunc on_done)>;
 
   using AsyncClient = Grpc::AsyncClient<RequestType, ResponseType>;
 
@@ -47,7 +47,7 @@ class GrpcTransport : public Grpc::AsyncRequestCallbacks<ResponseType>,
 
   GrpcTransport(AsyncClientPtr async_client, const RequestType& request,
                 ResponseType* response,
-                istio::authz_client::DoneFunc on_done);
+                Envoy::Network::Authz_client::DoneFunc on_done);
 
   // Grpc::AsyncRequestCallbacks<ResponseType>
   void onCreateInitialMetadata(Http::HeaderMap & metadata) override;
@@ -62,19 +62,13 @@ class GrpcTransport : public Grpc::AsyncRequestCallbacks<ResponseType>,
 
   AsyncClientPtr async_client_;
   ResponseType* response_;
-  ::istio::authz_client::DoneFunc on_done_;
+  ::Envoy::Network::Authz_client::DoneFunc on_done_;
   Grpc::AsyncRequest* request_{};
 };
 
-typedef GrpcTransport<istio::v1::authz::Request,
-                      istio::v1::authz::Response>
+typedef GrpcTransport<authz::v1::Request,
+                      authz::v1::Response>
     CheckTransport;
-
-/*
-typedef GrpcTransport<istio::v1::autz::Request,
-                      istio::v1::autz::Response>
-    ReportTransport;
-*/
 
 }  // namespace Authz
 }  // namespace Network 
