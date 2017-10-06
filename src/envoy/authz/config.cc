@@ -23,6 +23,7 @@ namespace {
 // The Json object name for static attributes.
 const std::string kAuthzAttributes("authz_attributes");
 const std::string kDisableAttrCheck("disable_check");
+const std::string kDisableUds("disable_uds");
 /*
 void ReadString(const Json::Object& json, const std::string& name,
                 std::string* value) {
@@ -49,6 +50,7 @@ void AuthzConfig::Load(const Json::Object& json) {
   ReadStringMap(json, kAuthzAttributes, &authz_attributes);
 
   disable_check = json.getBoolean(kDisableAttrCheck, false);
+  disable_uds   = json.getBoolean(kDisableUds, false);
 }
 
 }  // namespace Authz 
