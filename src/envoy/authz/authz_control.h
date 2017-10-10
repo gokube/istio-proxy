@@ -100,6 +100,25 @@ class AuthzControl final : public ThreadLocal::ThreadLocalObject,
                          const std::string& source_user) const;
 };
 
+class AuthzCmConfig : public Logger::Loggable<Logger::Id::filter> {
+  public:
+    static AuthzCmConfig& getInstance(const std::string &clusterName, const std::string &sock) {
+      static AuthzCmConfig instance(clusterName, sock);
+      return instance;
+    }
+
+    envoy::api::v2::Cluster getCluster() {
+       return _cluster;
+    }
+
+  private:
+    envoy::api::v2::Cluster _cluster;
+    AuthzCmConfig(const std::string &clusterName, const std::string &sockName);
+
+    ~AuthzCmConfig() = default;
+};
+
+
 }  // namespace Authz 
 }  // namespace Network 
 }  // namespace Envoy
