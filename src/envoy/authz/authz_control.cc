@@ -56,7 +56,7 @@ const std::string kTargetPort = "target.port";
 // Context attributes
 const std::string kContextProtocol = "context.protocol";
 const std::string kContextTime = "context.time";
-const std::string kDikastesSock = "/tmp/dikastes.sock";
+const std::string kDikastesSock = "/tmp/dikastes/server.sock";
 
 void extract_spiffy_attr(const std::string &source_user, std::map<std::string, std::string> &rmap) {
   std::stringstream ss(source_user);

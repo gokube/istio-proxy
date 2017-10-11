@@ -17,13 +17,13 @@ spec:
         ports:
         - containerPort: 9090
         volumeMounts:
-        - mountPath: /tmp/dikastes.sock
+        - mountPath: /tmp/dikastes
           name: test-volume
       volumes:
         - name: test-volume
           hostPath:
             # directory location on host
-            path: /tmp/dikastes.sock
+            path: /tmp/dikastes
             # this field is optional
             # type: Socket 
 
