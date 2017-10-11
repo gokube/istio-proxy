@@ -234,7 +234,9 @@ AuthzControl::AuthzControl(const AuthzConfig& authz_config,
   nid_ = getNid();
   if (authz_config_.disable_uds == false) {
     try {
-      cm_.addOrUpdatePrimaryCluster(AuthzCmConfig::getInstance(std::string(kAuthzServerClusterName), kDikastesSock).getCluster());
+      auto json = getDikastesClusterJson(std::string(kAuthzServerClusterName), kDikastesSock);
+      ENVOY_LOG(debug, "Dikastes config: {}", json);
+      cm_.addOrUpdatePrimaryCluster(parseClusterFromJson(json));
 //      cm_.loadCluster(parseClusterFromJson(), false);
     } catch (const std::exception &e) {
       ENVOY_LOG(info, "Invalid Json {}", e.what());
@@ -337,13 +339,6 @@ std::map<std::string, std::string> AuthzControl::getLabels(const bssl::UniquePtr
   result = parse_claims(X509_EXTENSION_get_data(ext));
   labels_ = result;
   return result;
-}
-
-
-AuthzCmConfig::AuthzCmConfig(const std::string &clusterName, const std::string &sockName) {
-      auto json = getDikastesClusterJson(clusterName, sockName);
-      ENVOY_LOG(debug, "Dikastes config: {}", json);
-      _cluster = parseClusterFromJson(json);
 }
 
 }  // namespace Authz
