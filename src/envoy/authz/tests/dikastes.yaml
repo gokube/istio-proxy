@@ -1,0 +1,29 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: envoy-client
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: envoy-client 
+        version: v1
+    spec:
+      containers:
+      - name: envoy-client
+        image: quay.io/saurabh/dtp:latest
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 9090
+        volumeMounts:
+        - mountPath: /tmp/dikastes.sock
+          name: test-volume
+      volumes:
+        - name: test-volume
+          hostPath:
+            # directory location on host
+            path: /tmp/dikastes.sock
+            # this field is optional
+            # type: Socket 
+

@@ -1,0 +1,35 @@
+FROM ubuntu:xenial
+RUN apt-get update && \
+    apt-get install -y \
+    curl \
+    iptables \
+    iproute2 \
+    iputils-ping \
+    dnsutils \
+    netcat \
+    tcpdump \
+    net-tools \
+    libc6-dbg gdb valgrind \
+    vim \
+    nano \
+    emacs \
+    wrk \
+    lsof \
+    busybox \
+    sudo \
+    python
+
+ADD dikastes-client.sh /usr/local/bin/
+ADD envoy.json /var/lib/dikastes/envoy/envoy.json
+ADD envoy /usr/local/bin/envoy
+ADD certs /var/lib/dikastes/envoy/certs
+ADD echo.py /usr/local/bin/echo.py
+
+# Sudoers used to allow tcpdump and other debug utilities.
+RUN useradd -m --uid 1337 envoy-proxy && \
+    echo "envoy-proxy ALL=NOPASSWD: ALL" >> /etc/sudoers && \
+    chown -R envoy-proxy /var/lib/dikastes
+
+RUN chmod +x /usr/local/bin/dikastes-client.sh
+
+ENTRYPOINT /usr/local/bin/dikastes-client.sh
