@@ -26,9 +26,6 @@ namespace Envoy {
 namespace Network {
 namespace Authz {
 
-// The name for the authz server cluster.
-extern const char* kAuthzServerClusterName;
-
 // A config for authz filter
 struct AuthzConfig {
   // These static attributes will be matched from the cert. 
@@ -36,8 +33,6 @@ struct AuthzConfig {
 
   // if value is true then let un-matched traffic through
   bool disable_check;
-  // disable listening on a unix-domain socket
-  bool disable_uds;
 
   // Load the config from envoy config.
   void Load(const Json::Object& json);

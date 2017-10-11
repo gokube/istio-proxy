@@ -21,10 +21,6 @@
 #include "common/common/base64.h"
 #include "common/common/utility.h"
 
-//Static authz cluster configuration
-#include "common/config/cds_json.h"
-#include "common/json/json_loader.h"
-
 using ::google::protobuf::util::Status;
 using ::google::protobuf::Map;
 using StatusCode = ::google::protobuf::util::error::Code;
@@ -196,24 +192,6 @@ std::map<std::string, std::string> parse_claims(ASN1_OCTET_STRING *data) {
   return result;
 }
 
-inline std::string getDikastesClusterJson(const std::string &name, const std::string &sock) {
-  std::string json = "{ \"name\": \"" + name + "\"," + \
-        R"EOF(
-          "connect_timeout_ms": 500,
-          "type": "static",
-          "lb_type": "round_robin",
-          "features": "http2",
-          "hosts": [{"url": "unix://)EOF" \
-          + sock + "\"}]" + "}";
-  return json;
-}
-
-inline envoy::api::v2::Cluster parseClusterFromJson(std::string &json) {
-  envoy::api::v2::Cluster cluster;
-  auto json_object_ptr = Json::Factory::loadFromString(json);
-  Config::CdsJson::translateCluster(*json_object_ptr, Optional<Upstream::SdsConfig>(), cluster);
-  return cluster;
-}
 }  // namespace
 
 
@@ -232,16 +210,6 @@ AuthzControl::AuthzControl(const AuthzConfig& authz_config,
 
   authz_client_ = ::Envoy::Network::Authz_client::CreateAuthzClient(options);
   nid_ = getNid();
-  if (authz_config_.disable_uds == false) {
-    try {
-      auto json = getDikastesClusterJson(std::string(kAuthzServerClusterName), kDikastesSock);
-      ENVOY_LOG(debug, "Dikastes config: {}", json);
-      cm_.addOrUpdatePrimaryCluster(parseClusterFromJson(json));
-//      cm_.loadCluster(parseClusterFromJson(), false);
-    } catch (const std::exception &e) {
-      ENVOY_LOG(info, "Invalid Json {}", e.what());
-    }
-  }
 }
 
 Envoy::Network::Authz_client::CancelFunc AuthzControl::SendCheck(

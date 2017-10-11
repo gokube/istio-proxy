@@ -13,7 +13,6 @@
  * limitations under the License.
  */
 #include "src/envoy/authz/grpc_transport.h"
-#include "src/envoy/authz/config.h"
 
 using ::google::protobuf::util::Status;
 using StatusCode = ::google::protobuf::util::error::Code;
@@ -26,11 +25,34 @@ namespace {
 // gRPC request timeout
 const std::chrono::milliseconds kGrpcRequestTimeoutMs(5000);
 
-}  // namespace
+/*
+// HTTP trace headers that should pass to gRPC metadata from origin request.
+// x-request-id is added for easy debugging.
+const LowerCaseString kRequestId("x-request-id");
+const LowerCaseString kB3TraceId("x-b3-traceid");
+const LowerCaseString kB3SpanId("x-b3-spanid");
+const LowerCaseString kB3ParentSpanId("x-b3-parentspanid");
+const LowerCaseString kB3Sampled("x-b3-sampled");
+const LowerCaseString kB3Flags("x-b3-flags");
+const LowerCaseString kOtSpanContext("x-ot-span-context");
+
+// The name for the mixer server cluster.
+const char* kMixerServerClusterName = "authz_server";
+
+inline void CopyHeaderEntry(const HeaderEntry* entry,
+                            const LowerCaseString& key,
+                            Http::HeaderMap& headers) {
+  if (entry) {
+    std::string val(entry->value().c_str(), entry->value().size());
+    headers.addReferenceKey(key, val);
+  }
+}
+*/
 
 // The name for the authz server cluster.
 const char* kAuthzServerClusterName = "authz_server";
 
+}  // namespace
 
 template <class RequestType, class ResponseType>
 GrpcTransport<RequestType, ResponseType>::GrpcTransport(
