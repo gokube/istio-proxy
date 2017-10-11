@@ -45,7 +45,7 @@ CERTDIR="$ROOT/src/envoy/authz/certs"
 DEBUG=''
 
 PORT='9090'
-AUTHZ_SERVER='localhost:9091'
+AUTHZ_SERVER='/tmp/dikastes/server.sock'
 MIXER_SERVER='localhost:9092'
 BACKEND='localhost:8080'
 
