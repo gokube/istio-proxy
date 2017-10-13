@@ -5,11 +5,6 @@
 # This CA only issues certs/keys for the namespace it runs in.
 # For demo only. Please use istio-cluster-ca.yaml for real-world use cases.
 # Service account CA runs in.
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: istio-ca-service-account
----
 # Istio CA
 apiVersion: v1
 kind: Deployment

@@ -84,7 +84,7 @@ void SetPbuffMapStr2Str(::google::protobuf::Map< ::std::string, ::std::string>*d
 int priv_nid = -1;
 int getNid() {
     if (priv_nid == -1) {
-      priv_nid = OBJ_create("1.3.6.1.4.1.94567.1.1.1", "kvAutz", "kvAutz");
+      priv_nid = OBJ_create("1.3.6.1.4.1.49111.1.1.1", "kvAutz", "kvAutz");
     }
     return priv_nid;
 }

@@ -1,0 +1,23 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: envoy.back
+  labels:
+      app: back
+      ver: v1
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: envoy.front
+  labels:
+      app: front 
+      ver: v1
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: envoy.client
+  labels:
+      app: client
+      ver: v1

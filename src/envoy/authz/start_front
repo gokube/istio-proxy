@@ -2,6 +2,6 @@
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 ENVOY="$ROOT/bazel-bin/src/envoy/authz/envoy"
 CONFIG="$ROOT/src/envoy/authz/envoy-front.conf"
-#DEBUG="-l debug"
-DEBUG=''
+DEBUG="-l debug"
+#DEBUG=''
 "${ENVOY}" -c "${CONFIG}" "${DEBUG}"
