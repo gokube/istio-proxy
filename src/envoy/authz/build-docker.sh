@@ -7,9 +7,9 @@ function usage() {
 usage: ${BASH_SOURCE[0]} [options ...]"
   options::
    -c ... do a clean build
+   -p ... push to registry
    -r ... registry to use
    -t ... tag to use
-   -p ... push to registry
 EOF
   exit 2
 }
@@ -21,12 +21,13 @@ TAG=$(git log --pretty="%h" -n 1)
 
 CLEAN_BUILD=0
 PUSH=0
-while getopts c arg; do
+while getopts "cpr:t:h" arg; do
   case ${arg} in
      c) CLEAN_BUILD=1 ;;
      p) PUSH=1 ;;
      r) REGISTRY_NAME="${OPTARG}";;
      t) TAG="${OPTARG}";;
+     h) usage ;;
      *) usage "Invalid option: -${OPTARG}";;
   esac
 done
