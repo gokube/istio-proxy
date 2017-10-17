@@ -7,23 +7,32 @@ function usage() {
 usage: ${BASH_SOURCE[0]} [options ...]"
   options::
    -c ... do a clean build
+   -r ... registry to use
    -t ... tag to use
+   -p ... push to registry
 EOF
   exit 2
 }
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 BAZEL_TARGET_DIR="${ROOT}/bazel-bin/src/envoy/authz"
-DEBUG_IMAGE_NAME="quay.io/saurabh/dtp:latest"
+REGISTRY_NAME="us.gcr.io/unique-caldron-775/istio-proxy"
+TAG=$(git log --pretty="%h" -n 1)
 
 CLEAN_BUILD=0
+PUSH=0
 while getopts c arg; do
   case ${arg} in
      c) CLEAN_BUILD=1 ;;
-     t) DEBUG_IMAGE_NAME="${OPTARG}";;
+     p) PUSH=1 ;;
+     r) REGISTRY_NAME="${OPTARG}";;
+     t) TAG="${OPTARG}";;
      *) usage "Invalid option: -${OPTARG}";;
   esac
 done
+
+IMAGE_NAME="${REGISTRY_NAME}/dtp:${TAG}"
+echo "${IMAGE_NAME}"
 
 if [ $CLEAN_BUILD -eq 1 ]; then
   rm -rf ${BAZEL_TARGET_DIR}
@@ -35,6 +44,9 @@ cp -r ./certs/ ${BAZEL_TARGET_DIR}/
 cp ./tests/envoy.json ${BAZEL_TARGET_DIR}/
 cp ./tests/dikastes-client.sh ${BAZEL_TARGET_DIR}/
 cp docker/Dockerfile.debug ${BAZEL_TARGET_DIR}/
-docker build -f ${BAZEL_TARGET_DIR}/Dockerfile.debug -t "${DEBUG_IMAGE_NAME}" ${BAZEL_TARGET_DIR}
-echo "Push ${DEBUG_IMAGE_NAME} to a registry now"
-
+docker build -f ${BAZEL_TARGET_DIR}/Dockerfile.debug -t "${IMAGE_NAME}" ${BAZEL_TARGET_DIR}
+if [ $PUSH -eq 1 ]; then
+  docker push ${IMAGE_NAME}
+else 
+  echo "Push ${IMAGE_NAME} to a registry now"
+fi
