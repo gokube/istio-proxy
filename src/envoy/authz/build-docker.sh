@@ -16,7 +16,7 @@ EOF
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 BAZEL_TARGET_DIR="${ROOT}/bazel-bin/src/envoy/authz"
-REGISTRY_NAME="us.gcr.io/unique-caldron-775/istio-proxy"
+REGISTRY_NAME="gcr.io/unique-caldron-775/istio-proxy"
 TAG=$(git log --pretty="%h" -n 1)
 
 CLEAN_BUILD=0
