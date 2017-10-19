@@ -1,4 +1,6 @@
 #!/bin/bash
+## This file is only for pushing the test image that is used for testing authz independent of Istio pilot
+## dtp: Dikastes Test Proxy :-)
 
 function usage() {
   [[ -n "${1}" ]] && echo "${1}"
