@@ -6,6 +6,7 @@ import (
 	"net"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 
 	"golang.org/x/net/context"
@@ -13,7 +14,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-        pb "localtest/grpctest/authz/authz_v1"
+        pb "github.com/tigera/istio-proxy/src/envoy/authz/tests/grpcserver/authz_v1"
 )
 
 type authzServer struct {
@@ -47,9 +48,16 @@ func (s *authzServer) Check(ctx context.Context, request *pb.Request) (*pb.Respo
 	var e bool
         r = "permit"
         e = true
-	if s.c % 2 != 0 && resp_error == 1 {
-		r = "deny"
-		e = false
+
+	act := request.GetAction()
+	if act != nil {
+		http := act.GetHttp()
+		if http != nil {
+			if strings.Compare(http.Path, "/deny") == 0 {
+				r = "deny"
+				e = false
+			}
+		}
 	}
 	log.Printf("%v Check called for %v, resp: %v", s.c, request, r)
 	resp := fmt.Sprintf("all good %v", s.c)

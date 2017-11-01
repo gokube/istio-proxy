@@ -278,7 +278,7 @@ class Instance : public Http::StreamDecoderFilter,
         resp->status().code() != ResponseCode::Response_Status_Code_OK) &&
         state_ != Responded) {
       state_ = Responded;
-      check_status_code_ = HttpCode(status.error_code());
+      check_status_code_ = HttpCode(StatusCode::PERMISSION_DENIED);
       Utility::sendLocalReply(*decoder_callbacks_, false,
                               Code(check_status_code_), status.ToString());
       return;
