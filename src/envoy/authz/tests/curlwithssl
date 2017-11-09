@@ -6,6 +6,6 @@ if [ "$1" != "" ]; then
 fi
 CDIR=../certs
 curl -k \
--s -o /dev/null -w "%{http_code}\n" \
+-s  -w "httpcode: %{http_code}\n" \
 -E ${CDIR}/envoy.client-combined.pem \
  https://server.test.com:9090/${HTTPPATH}

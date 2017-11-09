@@ -90,6 +90,19 @@ int HttpCode(int code) {
   }
 }
 
+std::string HttpCodeString(int code) {
+  switch(code) {
+   case 401:
+   case 402:
+   case 403:
+     return std::to_string(code) + std::string(": Forbidden\n");
+   default:
+     break;
+  }
+  std::string r("Ok\n");
+  return r;
+}
+
 }  // namespace
 
 class Config {
@@ -280,7 +293,7 @@ class Instance : public Http::StreamDecoderFilter,
       state_ = Responded;
       check_status_code_ = HttpCode(StatusCode::PERMISSION_DENIED);
       Utility::sendLocalReply(*decoder_callbacks_, false,
-                              Code(check_status_code_), status.ToString());
+                              Code(check_status_code_), HttpCodeString(check_status_code_));
       return;
     }
 
