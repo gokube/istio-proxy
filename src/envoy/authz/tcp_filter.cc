@@ -233,7 +233,6 @@ class TcpAuthzFilterFactory : public NamedNetworkFilterConfigFactory {
     };
   }
   std::string name() override { return "authz"; }
-  NetworkFilterType type() override { return NetworkFilterType::Both; }
 };
 
 static Registry::RegisterFactory<TcpAuthzFilterFactory,

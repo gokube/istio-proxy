@@ -63,7 +63,7 @@ GrpcTransport<RequestType, ResponseType>::GrpcTransport(
       response_(response),
       on_done_(on_done),
       request_(async_client_->send(
-          descriptor(), request, *this,
+          descriptor(), request, *this, Tracing::NullSpan::instance(),
           Optional<std::chrono::milliseconds>(kGrpcRequestTimeoutMs))) {
   ENVOY_LOG(debug, "Sending {} request: {}", descriptor().name(),
             request.DebugString());
@@ -77,7 +77,7 @@ void GrpcTransport<RequestType, ResponseType>::onCreateInitialMetadata(Http::Hea
 
 template <class RequestType, class ResponseType>
 void GrpcTransport<RequestType, ResponseType>::onSuccess(
-    std::unique_ptr<ResponseType>&& response) {
+    std::unique_ptr<ResponseType>&& response, Tracing::Span&) {
   ENVOY_LOG(debug, "{} response: {}", descriptor().name(),
             response->DebugString());
   response->Swap(response_);
@@ -87,7 +87,8 @@ void GrpcTransport<RequestType, ResponseType>::onSuccess(
 
 template <class RequestType, class ResponseType>
 void GrpcTransport<RequestType, ResponseType>::onFailure(
-    Grpc::Status::GrpcStatus status, const std::string& message) {
+    Grpc::Status::GrpcStatus status, const std::string& message,
+    Tracing::Span&) {
   ENVOY_LOG(debug, "{} failed with code: {}, {}", descriptor().name(), status,
             message);
   on_done_(Status(static_cast<StatusCode>(status), message), nullptr);

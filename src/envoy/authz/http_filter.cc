@@ -336,7 +336,6 @@ class AuthzConfigFactory : public NamedHttpFilterConfigFactory {
         };
   }
   std::string name() override { return "authz"; }
-  HttpFilterType type() override { return HttpFilterType::Decoder; }
 };
 
 static Registry::RegisterFactory<AuthzConfigFactory,
