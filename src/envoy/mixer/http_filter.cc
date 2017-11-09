@@ -245,7 +245,7 @@ class Instance : public Http::StreamDecoderFilter,
     }
 
     // Extract attributes from x-istio-attributes header
-    ::istio::proxy::mixer::StringMap forwarded_attributes;
+    ::istio::mixer::v1::Attributes_StringMap forwarded_attributes;
     const HeaderEntry* entry = headers.get(Utils::kIstioAttributeHeader);
     if (entry) {
       std::string str(entry->value().c_str(), entry->value().size());
@@ -382,7 +382,6 @@ class MixerConfigFactory : public NamedHttpFilterConfigFactory {
         };
   }
   std::string name() override { return "mixer"; }
-  HttpFilterType type() override { return HttpFilterType::Decoder; }
 };
 
 static Registry::RegisterFactory<MixerConfigFactory,

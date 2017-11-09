@@ -13,17 +13,18 @@
  * limitations under the License.
  */
 
-#include "test/integration/integration.h"
+#include "test/integration/http_integration.h"
 #include "test/integration/utility.h"
 
 namespace Envoy {
 
 // Base class JWT filter integration tests.
 class JwtVerificationFilterIntegrationTest
-    : public BaseIntegrationTest,
+    : public HttpIntegrationTest,
       public testing::TestWithParam<Network::Address::IpVersion> {
  public:
-  JwtVerificationFilterIntegrationTest() : BaseIntegrationTest(GetParam()) {}
+  JwtVerificationFilterIntegrationTest()
+      : HttpIntegrationTest(Http::CodecClient::Type::HTTP1, GetParam()) {}
   virtual ~JwtVerificationFilterIntegrationTest() {}
   /**
    * Initializer for an individual integration test.
@@ -73,11 +74,13 @@ class JwtVerificationFilterIntegrationTest
       const Http::HeaderMap& headers) {
     std::map<std::string, std::string> ret;
     headers.iterate(
-        [](const Http::HeaderEntry& entry, void* context) -> void {
+        [](const Http::HeaderEntry& entry,
+           void* context) -> Http::HeaderMap::Iterate {
           auto ret = static_cast<std::map<std::string, std::string>*>(context);
           Http::LowerCaseString lower_key{entry.key().c_str()};
           (*ret)[std::string(lower_key.get())] =
               std::string(entry.value().c_str());
+          return Http::HeaderMap::Iterate::Continue;
         },
         &ret);
     return ret;
@@ -107,8 +110,7 @@ class JwtVerificationFilterIntegrationTest
     FakeStreamPtr request_stream_issuer;
     FakeStreamPtr request_stream_backend;
 
-    codec_client =
-        makeHttpConnection(lookupPort("http"), Http::CodecClient::Type::HTTP1);
+    codec_client = makeHttpConnection(lookupPort("http"));
 
     // Send a request to Envoy.
     if (!request_body.empty()) {
@@ -122,7 +124,8 @@ class JwtVerificationFilterIntegrationTest
 
     fake_upstream_connection_issuer =
         fake_upstreams_[1]->waitForHttpConnection(*dispatcher_);
-    request_stream_issuer = fake_upstream_connection_issuer->waitForNewStream();
+    request_stream_issuer =
+        fake_upstream_connection_issuer->waitForNewStream(*dispatcher_);
     request_stream_issuer->waitForEndStream(*dispatcher_);
 
     // Mock a response from an issuer server.
@@ -140,7 +143,7 @@ class JwtVerificationFilterIntegrationTest
       fake_upstream_connection_backend =
           fake_upstreams_[0]->waitForHttpConnection(*dispatcher_);
       request_stream_backend =
-          fake_upstream_connection_backend->waitForNewStream();
+          fake_upstream_connection_backend->waitForNewStream(*dispatcher_);
       request_stream_backend->waitForEndStream(*dispatcher_);
 
       EXPECT_TRUE(request_stream_backend->complete());
@@ -183,13 +186,8 @@ class JwtVerificationFilterIntegrationTestWithJwks
   std::string ConfigPath() override {
     return "src/envoy/auth/integration_test/envoy.conf.jwk";
   }
-};
 
-INSTANTIATE_TEST_CASE_P(
-    IpVersions, JwtVerificationFilterIntegrationTestWithJwks,
-    testing::ValuesIn(TestEnvironment::getIpVersionsForTest()));
-
-TEST_P(JwtVerificationFilterIntegrationTestWithJwks, Success1) {
+ protected:
   const std::string kPublicKey =
       "{\"keys\": [{\"kty\": \"RSA\",\"alg\": \"RS256\",\"use\": "
       "\"sig\",\"kid\": \"62a93512c9ee4c7f8067b5a216dade2763d32a47\",\"n\": "
@@ -210,6 +208,36 @@ TEST_P(JwtVerificationFilterIntegrationTestWithJwks, Success1) {
       "74kRBVZbk2wnmmb7IhP9OoLc1-7-9qU1uhpDxmE6JwBau0mDSwMnYDS4G_ML17dC-"
       "ZDtLd1i24STUw39KH0pcSdfFbL2NtEZdNeam1DDdk0iUtJSPZliUHJBI_pj8M-2Mn_"
       "oA8jBuI8YKwBqYkZCN1I95Q\",\"e\": \"AQAB\"}]}";
+};
+
+INSTANTIATE_TEST_CASE_P(
+    IpVersions, JwtVerificationFilterIntegrationTestWithJwks,
+    testing::ValuesIn(TestEnvironment::getIpVersionsForTest()));
+
+TEST_P(JwtVerificationFilterIntegrationTestWithJwks, Success1) {
+  const std::string kJwtNoKid =
+      "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9."
+      "eyJpc3MiOiJodHRwczovL2V4YW1wbGUuY29tIiwic3ViIjoidGVzdEBleGFtcGxlLmNvbSIs"
+      "ImF1ZCI6ImV4YW1wbGVfc2VydmljZSIsImV4cCI6MjAwMTAwMTAwMX0."
+      "n45uWZfIBZwCIPiL0K8Ca3tmm-ZlsDrC79_"
+      "vXCspPwk5oxdSn983tuC9GfVWKXWUMHe11DsB02b19Ow-"
+      "fmoEzooTFn65Ml7G34nW07amyM6lETiMhNzyiunctplOr6xKKJHmzTUhfTirvDeG-q9n24-"
+      "8lH7GP8GgHvDlgSM9OY7TGp81bRcnZBmxim_UzHoYO3_"
+      "c8OP4ZX3xG5PfihVk5G0g6wcHrO70w0_64JgkKRCrLHMJSrhIgp9NHel_"
+      "CNOnL0AjQKe9IGblJrMuouqYYS0zEWwmOVUWUSxQkoLpldQUVefcfjQeGjz8IlvktRa77FYe"
+      "xfP590ACPyXrivtsxg";
+
+  auto expected_headers = BaseRequestHeaders();
+  expected_headers.addCopy("sec-istio-auth-userinfo",
+                           "{\"iss\":\"https://"
+                           "example.com\",\"sub\":\"test@example.com\",\"aud\":"
+                           "\"example_service\",\"exp\":2001001001}");
+
+  TestVerification(createHeaders(kJwtNoKid), "", createIssuerHeaders(),
+                   kPublicKey, true, expected_headers, "");
+}
+
+TEST_P(JwtVerificationFilterIntegrationTestWithJwks, JwtExpired) {
   const std::string kJwtNoKid =
       "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9."
       "eyJpc3MiOiJodHRwczovL2V4YW1wbGUuY29tIiwic3ViIjoidGVzdEBleGFtcGxlLmNvbSIs"
@@ -221,14 +249,28 @@ TEST_P(JwtVerificationFilterIntegrationTestWithJwks, Success1) {
       "qS7Wwf8C0V9o2KZu0KDV0j0c9nZPWTv3IMlaGZAtQgJUeyemzRDtf4g2yG3xBZrLm3AzDUj_"
       "EX_pmQAHA5ZjPVCAw";
 
-  auto expected_headers = BaseRequestHeaders();
-  expected_headers.addCopy("Istio-Auth-UserInfo",
-                           "{\"iss\":\"https://"
-                           "example.com\",\"sub\":\"test@example.com\","
-                           "\"exp\":1501281058}");
-
   TestVerification(createHeaders(kJwtNoKid), "", createIssuerHeaders(),
-                   kPublicKey, true, expected_headers, "");
+                   kPublicKey, false,
+                   Http::TestHeaderMapImpl{{":status", "401"}}, "JWT_EXPIRED");
+}
+
+TEST_P(JwtVerificationFilterIntegrationTestWithJwks, AudInvalid) {
+  // Payload:
+  // {"iss":"https://example.com","sub":"test@example.com","aud":"invalid_service","exp":2001001001}
+  const std::string jwt =
+      "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9."
+      "eyJpc3MiOiJodHRwczovL2V4YW1wbGUuY29tIiwic3ViIjoidGVzdEBleGFtcGxlLmNvbSIs"
+      "ImF1ZCI6ImludmFsaWRfc2VydmljZSIsImV4cCI6MjAwMTAwMTAwMX0."
+      "gEWnuqtEdVzC94lVbuClaVLoxs-w-_uKJRbAYwAKRulE-"
+      "ZhxG9VtKCd8i90xEuk9txB3tT8VGjdZKs5Hf5LjF4ebobV3M9ya6mZvq1MdcUHYiUtQhJe3M"
+      "t_2sxRmogK-QZ7HcuA9hpFO4HHVypnMDr4WHgxx2op1vhKU7NDlL-"
+      "38Dpf6uKEevxi0Xpids9pSST4YEQjReTXJDJECT5dhk8ZQ_lcS-pujgn7kiY99bTf6j4U-"
+      "ajIcWwtQtogYx4bcmHBUvEjcYOC86TRrnArZSk1mnO7OGq4KrSrqhXnvqDmc14LfldyWqEks"
+      "X5FkM94prXPK0iN-pPVhRjNZ4xvR-w";
+
+  TestVerification(createHeaders(jwt), "", createIssuerHeaders(), kPublicKey,
+                   false, Http::TestHeaderMapImpl{{":status", "401"}},
+                   "ISS_AUD_UNMATCH");
 }
 
 TEST_P(JwtVerificationFilterIntegrationTestWithJwks, Fail1) {
@@ -236,7 +278,7 @@ TEST_P(JwtVerificationFilterIntegrationTestWithJwks, Fail1) {
   std::string pubkey = "weirdKey";
   TestVerification(createHeaders(token), "", createIssuerHeaders(), pubkey,
                    false, Http::TestHeaderMapImpl{{":status", "401"}},
-                   "Verification Failed");
+                   "JWT_BAD_FORMAT");
 }
 
 /*

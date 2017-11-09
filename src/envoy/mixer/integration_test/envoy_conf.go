@@ -43,11 +43,13 @@ type ConfParam struct {
 	ServerConfig    string
 	AccessLog       string
 	MixerRouteFlags string
+	FaultFilter     string
 }
 
 // A basic config
 const basicConfig = `
                   "mixer_attributes": {
+		      "mesh1.ip": "1.1.1.1",
                       "target.uid": "POD222",
                       "target.namespace": "XYZ222"
                   }
@@ -92,6 +94,7 @@ const networkFailClose = `
 // The default client proxy mixer config
 const defaultClientMixerConfig = `
                    "forward_attributes": {
+		      "mesh3.ip": "1::8",
                       "source.uid": "POD11",
                       "source.namespace": "XYZ11"
                    }
@@ -99,6 +102,19 @@ const defaultClientMixerConfig = `
 
 const defaultMixerRouteFlags = `
                    "mixer_control": "on",
+`
+
+const allAbortFaultFilter = `
+               {
+                   "type": "decoder",
+                   "name": "fault",
+                   "config": {
+                       "abort": {
+                           "abort_percent": 100,
+                           "http_status": 503
+                       }
+                   }
+               },
 `
 
 // The envoy config template
@@ -128,6 +144,7 @@ const envoyConfTempl = `
                       "opaque_config": {
 {{.MixerRouteFlags}}
                         "mixer_forward": "off",
+			"mixer_attributes.mesh2.ip": "::ffff:204.152.189.116",
                         "mixer_attributes.target.user": "target-user",
                         "mixer_attributes.target.name": "target-name"
                       }
@@ -149,6 +166,7 @@ const envoyConfTempl = `
 {{.ServerConfig}}
                 }
               },
+{{.FaultFilter}}
               {
                 "type": "decoder",
                 "name": "router",
@@ -317,7 +335,7 @@ func getConf() ConfParam {
 	}
 }
 
-func CreateEnvoyConf(path, conf, flags string, stress bool) error {
+func CreateEnvoyConf(path, conf, flags string, stress, faultInject bool) error {
 	c := getConf()
 	c.ServerConfig = conf
 	c.MixerRouteFlags = defaultMixerRouteFlags
@@ -326,6 +344,9 @@ func CreateEnvoyConf(path, conf, flags string, stress bool) error {
 	}
 	if stress {
 		c.AccessLog = "/dev/null"
+	}
+	if faultInject {
+		c.FaultFilter = allAbortFaultFilter
 	}
 	return c.write(path)
 }

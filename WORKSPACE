@@ -37,15 +37,27 @@ bind(
     actual = "//external:ssl",
 )
 
-git_repository(
+ENVOY_SHA = "e593fedc3232fbb694f3ec985567a2c7dff05212"  # Oct 31, 2017
+
+http_archive(
     name = "envoy",
-    remote = "https://github.com/lyft/envoy.git",
-    commit = "419b26e942d606178321af6870fa70a294a7525c",
+    strip_prefix = "envoy-" + ENVOY_SHA,
+    url = "https://github.com/envoyproxy/envoy/archive/" + ENVOY_SHA + ".zip",
 )
 
 load("@envoy//bazel:repositories.bzl", "envoy_dependencies")
 
-envoy_dependencies()
+envoy_dependencies(repository="@envoy", skip_targets=["io_bazel_rules_go"])
+
+bind(
+    name = "cc_wkt_protos",
+    actual = "@com_google_protobuf_cc//:cc_wkt_protos",
+)
+
+bind(
+    name = "cc_wkt_protos_genproto",
+    actual = "@com_google_protobuf_cc//:cc_wkt_protos_genproto",
+)
 
 load("@envoy//bazel:cc_configure.bzl", "cc_configure")
 
@@ -58,21 +70,25 @@ api_dependencies()
 # Following go repositories are for building go integration test for mixer filter.
 git_repository(
     name = "io_bazel_rules_go",
-    commit = "7991b6353e468ba5e8403af382241d9ce031e571",  # Aug 1, 2017 (gazelle fixes)
+    commit = "9cf23e2aab101f86e4f51d8c5e0f14c012c2161c",  # Oct 12, 2017 (Add `build_external` option to `go_repository`)
     remote = "https://github.com/bazelbuild/rules_go.git",
 )
 
-git_repository(
-    name = "org_pubref_rules_protobuf",
-    commit = "9ede1dbc38f0b89ae6cd8e206a22dd93cc1d5637",
-    remote = "https://github.com/pubref/rules_protobuf",
-)
+load("@io_bazel_rules_go//go:def.bzl", "go_rules_dependencies", "go_register_toolchains")
+go_rules_dependencies()
+go_register_toolchains()
+
+load("@io_bazel_rules_go//proto:def.bzl", "proto_register_toolchains")
+proto_register_toolchains()
+
+MIXER = "ba8ad5ca8ae77b946366e423d28b47cf3c8e1550"
 
 git_repository(
     name = "com_github_istio_mixer",
-    commit = "2da5a16120f913ec4f5ee7b34e84d7a08a02740f",  # Aug 30, 2017
+    commit = MIXER,
     remote = "https://github.com/istio/mixer",
 )
 
 load("@com_github_istio_mixer//test:repositories.bzl", "mixer_test_repositories")
+
 mixer_test_repositories()

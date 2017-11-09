@@ -32,7 +32,7 @@ go_library(
     ],
     deps = [
         "@com_github_googleapis_googleapis//:google/rpc",
-        "@com_github_istio_api//:mixer/v1",
+        "@io_istio_api//:mixer/v1",
         "@com_github_istio_mixer//pkg/attribute:go_default_library",
         "@com_github_istio_mixer//pkg/pool:go_default_library",
         "@com_github_istio_mixer//pkg/status:go_default_library",
@@ -63,6 +63,9 @@ go_test_suite(
         "check_report_disable_test.go",
         "disable_check_cache_test.go",
         "failed_request_test.go",
+        "fault_inject_test.go",
+        "internal_fail_close_test.go",
+        "internal_fail_open_test.go",
         "quota_cache_test.go",
         "quota_test.go",
         "report_batch_test.go",
