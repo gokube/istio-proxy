@@ -18,7 +18,7 @@ import (
 	"fmt"
 	"testing"
 
-	rpc "github.com/googleapis/googleapis/google/rpc"
+	rpc "istio.io/gogo-genproto/googleapis/google/rpc"
 )
 
 const (
@@ -40,8 +40,6 @@ const checkAttributesMixerFail = `
   "request.scheme": "http",
   "source.uid": "POD11",
   "source.namespace": "XYZ11",
-  "source.name": "source-name",
-  "source.user": "source-user",
   "source.ip": "[127 0 0 1]",
   "source.port": "*",
   "target.name": "target-name",
@@ -74,8 +72,6 @@ const reportAttributesMixerFail = `
   "request.scheme": "http",
   "source.uid": "POD11",
   "source.namespace": "XYZ11",
-  "source.name": "source-name",
-  "source.user": "source-user",
   "source.ip": "[127 0 0 1]",
   "source.port": "*",
   "target.name": "target-name",
@@ -120,8 +116,6 @@ const reportAttributesBackendFail = `
   "request.scheme": "http",
   "source.uid": "POD11",
   "source.namespace": "XYZ11",
-  "source.name": "source-name",
-  "source.user": "source-user",
   "source.ip": "[127 0 0 1]",
   "source.port": "*",
   "target.name": "target-name",
@@ -153,8 +147,8 @@ const reportAttributesBackendFail = `
 
 func TestFailedRequest(t *testing.T) {
 	s := &TestSetup{
-		t:    t,
-		conf: basicConfig,
+		t:  t,
+		v2: GetDefaultV2Conf(),
 	}
 	if err := s.SetUp(); err != nil {
 		t.Fatalf("Failed to setup test: %v", err)

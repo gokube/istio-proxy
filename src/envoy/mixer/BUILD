@@ -15,38 +15,9 @@
 ################################################################################
 #
 
-load("@bazel_tools//tools/build_defs/pkg:pkg.bzl", "pkg_tar")
 load(
     "@envoy//bazel:envoy_build_system.bzl",
-    "envoy_proto_library",
     "envoy_cc_library",
-    "envoy_cc_binary",
-    "envoy_cc_test",
-    "envoy_linkopts",
-)
-
-envoy_cc_library(
-    name = "quota_config_lib",
-    srcs = [
-        "quota_config.cc",
-        "quota_config.h",
-    ],
-    repository = "@envoy",
-    deps = [
-        "//external:mixer_client_lib",
-	"@mixerapi_git//:mixer_client_config_cc_proto",
-    ],
-)
-
-envoy_cc_test(
-    name = "quota_config_test",
-    srcs = [
-        "quota_config_test.cc",
-    ],
-    repository = "@envoy",
-    deps = [
-        ":quota_config_lib",
-    ],
 )
 
 envoy_cc_library(
@@ -64,44 +35,11 @@ envoy_cc_library(
         "utils.h",
     ],
     repository = "@envoy",
+    visibility = ["//visibility:public"],
     deps = [
-        "//external:mixer_client_lib",
+        "//external:mixer_http_control_lib",
+        "//external:mixer_tcp_control_lib",
+        "//src/envoy/auth:http_filter_lib",
         "@envoy//source/exe:envoy_common_lib",
     ],
-    visibility = ["//visibility:public"],
-)
-
-envoy_cc_binary(
-    name = "envoy",
-    repository = "@envoy",
-    visibility = ["//visibility:public"],
-    deps = [
-        ":filter_lib",
-        "@envoy//source/exe:envoy_main_entry_lib",
-    ],
-)
-
-pkg_tar(
-    name = "envoy_tar",
-    extension = "tar.gz",
-    files = [":envoy"],
-    mode = "0755",
-    package_dir = "/usr/local/bin/",
-)
-
-pkg_tar(
-    name = "start_envoy_tar",
-    extension = "tar.gz",
-    files = ["start_envoy"],
-    mode = "0755",
-    package_dir = "/usr/local/bin/",
-)
-
-pkg_tar(
-    name = "config_tar",
-    extension = "tar.gz",
-    files = ["envoy.conf.template"],
-    mode = "0666",
-    package_dir = "/etc/opt/proxy",
-    tags = ["manual"],
 )

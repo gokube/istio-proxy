@@ -4,3 +4,4 @@ docker/envoy
 *.iml
 tags
 src/envoy/authz/tests/grpcserver/vendor
+/artifacts
