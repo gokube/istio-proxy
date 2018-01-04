@@ -60,6 +60,10 @@ git_repository(
     remote = "https://github.com/bazelbuild/rules_go.git",
 )
 
+load("@com_lyft_protoc_gen_validate//bazel:go_proto_library.bzl", "go_proto_repositories")
+go_proto_repositories(shared=0)
+
+
 load("@mixerapi_git//:api_dependencies.bzl", "mixer_api_for_proxy_dependencies")
 mixer_api_for_proxy_dependencies()
 
