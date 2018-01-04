@@ -37,17 +37,17 @@ bind(
     actual = "//external:ssl",
 )
 
-ENVOY_SHA = "e593fedc3232fbb694f3ec985567a2c7dff05212"  # Oct 31, 2017
+ENVOY_SHA = "522ab0cc82458e6c4d114b120a421015f333b518"  # Oct 31, 2017
 
-http_archive(
+git_repository(
     name = "envoy",
-    strip_prefix = "envoy-" + ENVOY_SHA,
-    url = "https://github.com/envoyproxy/envoy/archive/" + ENVOY_SHA + ".zip",
+    commit = ENVOY_SHA,
+    remote = "https://github.com/colabsaumoh/envoy",
 )
 
 load("@envoy//bazel:repositories.bzl", "envoy_dependencies")
 
-envoy_dependencies(repository="@envoy", skip_targets=["io_bazel_rules_go"])
+envoy_dependencies(skip_targets=["io_bazel_rules_go"])
 
 bind(
     name = "cc_wkt_protos",
@@ -73,6 +73,9 @@ git_repository(
     commit = "9cf23e2aab101f86e4f51d8c5e0f14c012c2161c",  # Oct 12, 2017 (Add `build_external` option to `go_repository`)
     remote = "https://github.com/bazelbuild/rules_go.git",
 )
+
+load("@com_lyft_protoc_gen_validate//bazel:go_proto_library.bzl", "go_proto_repositories")
+go_proto_repositories(shared=0)
 
 load("@io_bazel_rules_go//go:def.bzl", "go_rules_dependencies", "go_register_toolchains")
 go_rules_dependencies()
