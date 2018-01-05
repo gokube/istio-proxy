@@ -42,15 +42,15 @@ REPO=${REPO:-gcr.io/unique-caldron-775}
 
 TAG=${TAG:-$DOCKER_TAG}
 
-BAZEL_TARGET_DIR="bazel-bin/src/envoy/authz"
+BAZEL_TARGET_DIR="bazel-bin/src/envoy"
 
 BAZEL_TARGET="${BAZEL_TARGET_DIR}/envoy"
 RELEASE_IMAGE_NAME=${RELEASE_IMAGE_NAME:-${REPO}/${PROJECT}/envoy:${TAG}}
 DEBUG_IMAGE_NAME=${DEBUG_IMAGE_NAME:-${REPO}/${PROJECT}/envoy-debug:${TAG}}
 
 echo Publishing debug docker image
-bazel build -c dbg //src/envoy/authz:envoy
-rm -f docker/envoy
+rm -f ${BAZEL_TARGET_DIR}/envoy
+bazel build -c dbg //src/envoy
 cp tools/deb/istio-iptables.sh ${BAZEL_TARGET_DIR}
 cp tools/deb/istio-start.sh ${BAZEL_TARGET_DIR}
 cp tools/deb/envoy.json ${BAZEL_TARGET_DIR}
@@ -68,7 +68,8 @@ if [[ ${1-} == "debug" ]] ; then
 fi
 
 echo Publishing release docker image
-bazel build --config=release //src/envoy/authz:envoy
+rm -f ${BAZEL_TARGET_DIR}/envoy
+bazel build --config=release //src/envoy
 cp tools/deb/istio-iptables.sh ${BAZEL_TARGET_DIR}
 cp tools/deb/istio-start.sh ${BAZEL_TARGET_DIR}
 cp tools/deb/envoy.json ${BAZEL_TARGET_DIR}

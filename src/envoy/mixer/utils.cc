@@ -20,22 +20,68 @@ namespace Envoy {
 namespace Http {
 namespace Utils {
 
-const LowerCaseString kIstioAttributeHeader("x-istio-attributes");
+namespace {
 
-std::string SerializeTwoStringMaps(const StringMap& map1,
-                                   const StringMap& map2) {
-  ::istio::mixer::v1::Attributes_StringMap pb;
-  ::google::protobuf::Map<std::string, std::string>* map_pb =
-      pb.mutable_entries();
-  for (const auto& it : map1) {
-    (*map_pb)[it.first] = it.second;
+const std::string kSPIFFEPrefix("spiffe://");
+
+}  // namespace
+
+std::map<std::string, std::string> ExtractHeaders(
+    const HeaderMap& header_map, const std::set<std::string>& exclusives) {
+  std::map<std::string, std::string> headers;
+  struct Context {
+    Context(const std::set<std::string>& exclusives,
+            std::map<std::string, std::string>& headers)
+        : exclusives(exclusives), headers(headers) {}
+    const std::set<std::string>& exclusives;
+    std::map<std::string, std::string>& headers;
+  };
+  Context ctx(exclusives, headers);
+  header_map.iterate(
+      [](const HeaderEntry& header, void* context) -> HeaderMap::Iterate {
+        Context* ctx = static_cast<Context*>(context);
+        if (ctx->exclusives.count(header.key().c_str()) == 0) {
+          ctx->headers[header.key().c_str()] = header.value().c_str();
+        }
+        return HeaderMap::Iterate::Continue;
+      },
+      &ctx);
+  return headers;
+}
+
+bool GetIpPort(const Network::Address::Ip* ip, std::string* str_ip, int* port) {
+  if (ip) {
+    *port = ip->port();
+    if (ip->ipv4()) {
+      uint32_t ipv4 = ip->ipv4()->address();
+      *str_ip = std::string(reinterpret_cast<const char*>(&ipv4), sizeof(ipv4));
+      return true;
+    }
+    if (ip->ipv6()) {
+      std::array<uint8_t, 16> ipv6 = ip->ipv6()->address();
+      *str_ip = std::string(reinterpret_cast<const char*>(ipv6.data()), 16);
+      return true;
+    }
   }
-  for (const auto& it : map2) {
-    (*map_pb)[it.first] = it.second;
+  return false;
+}
+
+bool GetSourceUser(const Network::Connection* connection, std::string* user) {
+  if (connection) {
+    Ssl::Connection* ssl = const_cast<Ssl::Connection*>(connection->ssl());
+    if (ssl != nullptr) {
+      std::string result = ssl->uriSanPeerCertificate();
+      if (result.length() >= kSPIFFEPrefix.length() &&
+          result.compare(0, kSPIFFEPrefix.length(), kSPIFFEPrefix) == 0) {
+        // Strip out the prefix "spiffe://" in the identity.
+        *user = result.substr(kSPIFFEPrefix.size());
+      } else {
+        *user = result;
+      }
+      return true;
+    }
   }
-  std::string str;
-  pb.SerializeToString(&str);
-  return str;
+  return false;
 }
 
 }  // namespace Utils

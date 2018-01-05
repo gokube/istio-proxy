@@ -34,8 +34,6 @@ const reportAttributesOkGet = `
   "request.scheme": "http",
   "source.uid": "POD11",
   "source.namespace": "XYZ11",
-  "source.name": "source-name",
-  "source.user": "source-user",
   "source.ip": "[127 0 0 1]",
   "source.port": "*",
   "target.name": "target-name",
@@ -80,8 +78,6 @@ const reportAttributesOkPost1 = `
   "request.scheme": "http",
   "source.uid": "POD11",
   "source.namespace": "XYZ11",
-  "source.name": "source-name",
-  "source.user": "source-user",
   "source.ip": "[127 0 0 1]",
   "source.port": "*",
   "target.name": "target-name",
@@ -126,8 +122,6 @@ const reportAttributesOkPost2 = `
   "request.scheme": "http",
   "source.uid": "POD11",
   "source.namespace": "XYZ11",
-  "source.name": "source-name",
-  "source.user": "source-user",
   "source.ip": "[127 0 0 1]",
   "source.port": "*",
   "target.name": "target-name",
@@ -159,8 +153,8 @@ const reportAttributesOkPost2 = `
 
 func TestReportBatch(t *testing.T) {
 	s := &TestSetup{
-		t:    t,
-		conf: basicConfig,
+		t:  t,
+		v2: GetDefaultV2Conf(),
 	}
 	if err := s.SetUp(); err != nil {
 		t.Fatalf("Failed to setup test: %v", err)

@@ -19,6 +19,9 @@ import (
 	"fmt"
 	"os"
 	"text/template"
+
+	"github.com/golang/protobuf/jsonpb"
+	"github.com/golang/protobuf/proto"
 )
 
 const (
@@ -41,6 +44,7 @@ type ConfParam struct {
 	Backend         string
 	ClientConfig    string
 	ServerConfig    string
+	TcpServerConfig string
 	AccessLog       string
 	MixerRouteFlags string
 	FaultFilter     string
@@ -159,6 +163,7 @@ const envoyConfTempl = `
               }
             ],
             "filters": [
+{{.FaultFilter}}
               {
                 "type": "decoder",
                 "name": "mixer",
@@ -166,7 +171,6 @@ const envoyConfTempl = `
 {{.ServerConfig}}
                 }
               },
-{{.FaultFilter}}
               {
                 "type": "decoder",
                 "name": "router",
@@ -237,7 +241,7 @@ const envoyConfTempl = `
           "type": "both",
           "name": "mixer",
           "config": {
-{{.ServerConfig}}
+{{.TcpServerConfig}}
           }
         },
         {
@@ -335,9 +339,10 @@ func getConf() ConfParam {
 	}
 }
 
-func CreateEnvoyConf(path, conf, flags string, stress, faultInject bool) error {
+func CreateEnvoyConf(path, conf, flags string, stress, faultInject bool, v2 *V2Conf) error {
 	c := getConf()
 	c.ServerConfig = conf
+	c.TcpServerConfig = conf
 	c.MixerRouteFlags = defaultMixerRouteFlags
 	if flags != "" {
 		c.MixerRouteFlags = flags
@@ -348,5 +353,22 @@ func CreateEnvoyConf(path, conf, flags string, stress, faultInject bool) error {
 	if faultInject {
 		c.FaultFilter = allAbortFaultFilter
 	}
+
+	if v2 != nil {
+		c.ServerConfig = getV2Config(v2.HttpServerConf)
+		c.ClientConfig = getV2Config(v2.HttpClientConf)
+		c.TcpServerConfig = getV2Config(v2.TcpServerConf)
+	}
 	return c.write(path)
+}
+
+func getV2Config(v2 proto.Message) string {
+	m := jsonpb.Marshaler{
+		Indent: "  ",
+	}
+	str, err := m.MarshalToString(v2)
+	if err != nil {
+		return ""
+	}
+	return "\"v2\": " + str
 }

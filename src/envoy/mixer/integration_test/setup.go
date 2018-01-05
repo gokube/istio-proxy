@@ -22,9 +22,11 @@ import (
 type TestSetup struct {
 	t           *testing.T
 	conf        string
+	flags       string
 	stress      bool
 	faultInject bool
 	noMixer     bool
+	v2          *V2Conf
 
 	envoy   *Envoy
 	mixer   *MixerServer
@@ -33,7 +35,7 @@ type TestSetup struct {
 
 func (s *TestSetup) SetUp() error {
 	var err error
-	s.envoy, err = NewEnvoy(s.conf, "", s.stress, s.faultInject)
+	s.envoy, err = NewEnvoy(s.conf, s.flags, s.stress, s.faultInject, s.v2)
 	if err != nil {
 		log.Printf("unable to create Envoy %v", err)
 	} else {
@@ -64,6 +66,17 @@ func (s *TestSetup) TearDown() {
 		s.mixer.Stop()
 	}
 	s.backend.Stop()
+}
+
+func (s *TestSetup) ReStartEnvoy() {
+	s.envoy.Stop()
+	var err error
+	s.envoy, err = NewEnvoy(s.conf, s.flags, s.stress, s.faultInject, s.v2)
+	if err != nil {
+		s.t.Errorf("unable to re-start Envoy %v", err)
+	} else {
+		s.envoy.Start()
+	}
 }
 
 func (s *TestSetup) VerifyCheckCount(tag string, expected int) {
