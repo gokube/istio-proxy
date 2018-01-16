@@ -34,7 +34,7 @@ bind(
     actual = "//external:ssl",
 )
 
-ENVOY_SHA = "522ab0cc82458e6c4d114b120a421015f333b518"  # Oct 31, 2017
+ENVOY_SHA = "4108baad790ce5c39034b6506edbeea52dbc2eee" # Jan 16, 2017
 
 git_repository(
     name = "envoy",
