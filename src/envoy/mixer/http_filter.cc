@@ -189,7 +189,7 @@ class CheckData : public HttpCheckData,
 
   bool GetSourceIpPort(std::string* ip, int* port) const override {
     if (connection_) {
-      return Utils::GetIpPort(connection_->remoteAddress().ip(), ip, port);
+      return Utils::GetIpPort(connection_->remoteAddress()->ip(), ip, port);
     }
     return false;
   }
@@ -320,10 +320,10 @@ class CheckData : public HttpCheckData,
 
 class ReportData : public HttpReportData {
   const HeaderMap* headers_;
-  const AccessLog::RequestInfo& info_;
+  const Envoy::RequestInfo::RequestInfo& info_;
 
  public:
-  ReportData(const HeaderMap* headers, const AccessLog::RequestInfo& info)
+  ReportData(const HeaderMap* headers, const Envoy::RequestInfo::RequestInfo& info)
       : headers_(headers), info_(info) {}
 
   std::map<std::string, std::string> GetResponseHeaders() const override {
@@ -531,7 +531,7 @@ class Instance : public Http::StreamDecoderFilter,
 
   virtual void log(const HeaderMap* request_headers,
                    const HeaderMap* response_headers,
-                   const AccessLog::RequestInfo& request_info) override {
+                   const Envoy::RequestInfo::RequestInfo& request_info) override {
     ENVOY_LOG(debug, "Called Mixer::Instance : {}", __func__);
     if (!handler_) {
       if (request_headers == nullptr) {
