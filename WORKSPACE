@@ -16,25 +16,21 @@
 #
 
 load(
-    "//src/envoy/mixer:repositories.bzl",
-    "mixer_client_repositories",
+     "//:repositories.bzl",
+     "googletest_repositories",
+     "mixerapi_dependencies",
 )
 
-mixer_client_repositories()
-
-load(
-    "@mixerclient_git//:repositories.bzl",
-    "mixerapi_repositories",
-)
-
-mixerapi_repositories()
+googletest_repositories()
+mixerapi_dependencies()
 
 bind(
     name = "boringssl_crypto",
     actual = "//external:ssl",
 )
 
-ENVOY_SHA = "4108baad790ce5c39034b6506edbeea52dbc2eee" # Jan 16, 2017
+# When updating envoy sha manually please update the sha in istio.deps file also
+ENVOY_SHA = "07c2bf971c147e45326cccaa65e5843c9484ae6c"
 
 git_repository(
     name = "envoy",
@@ -43,37 +39,26 @@ git_repository(
 )
 
 load("@envoy//bazel:repositories.bzl", "envoy_dependencies")
-
-envoy_dependencies(skip_targets=["io_bazel_rules_go"])
+envoy_dependencies()
 
 load("@envoy//bazel:cc_configure.bzl", "cc_configure")
-
 cc_configure()
 
 load("@envoy_api//bazel:repositories.bzl", "api_dependencies")
-
 api_dependencies()
 
-git_repository(
-    name = "io_bazel_rules_go",
-    commit = "9cf23e2aab101f86e4f51d8c5e0f14c012c2161c",  # Oct 12, 2017 (Add `build_external` option to `go_repository`)
-    remote = "https://github.com/bazelbuild/rules_go.git",
-)
-
+load("@io_bazel_rules_go//go:def.bzl", "go_rules_dependencies", "go_register_toolchains")
 load("@com_lyft_protoc_gen_validate//bazel:go_proto_library.bzl", "go_proto_repositories")
 go_proto_repositories(shared=0)
+go_rules_dependencies()
+go_register_toolchains()
+load("@io_bazel_rules_go//proto:def.bzl", "proto_register_toolchains")
+proto_register_toolchains()
+>>>>>>> upstream/master
 
-
-load("@mixerapi_git//:api_dependencies.bzl", "mixer_api_for_proxy_dependencies")
-mixer_api_for_proxy_dependencies()
-
-ISTIO_SHA = "cdbdb153fb673cf444649c520ba7ed1b0dc99972"
-
+load("@bazel_tools//tools/build_defs/repo:git.bzl", "git_repository")
 git_repository(
-    name = "io_istio_istio",
-    commit = ISTIO_SHA,
-    remote = "https://github.com/istio/istio",
+    name = "org_pubref_rules_protobuf",
+    commit = "563b674a2ce6650d459732932ea2bc98c9c9a9bf",  # Nov 28, 2017 (bazel 0.8.0 support)
+    remote = "https://github.com/pubref/rules_protobuf",
 )
-
-load("//src/envoy/mixer/integration_test:repositories.bzl", "mixer_test_repositories")
-mixer_test_repositories()

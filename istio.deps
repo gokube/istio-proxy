@@ -1,9 +1,16 @@
 [
 	{
-		"name": "MIXER_CLIENT",
-		"repoName": "mixerclient",
+		"name": "ISTIO_API",
+		"repoName": "api",
 		"prodBranch": "master",
-		"file": "src/envoy/mixer/repositories.bzl",
-		"lastStableSHA": "cce7bc62205adbb96ce97e3718b0e2b68a20c645"
+		"file": "repositories.bzl",
+		"lastStableSHA": "ac6b6fef5693dce7c2cda71a18aefb4c07fb6af9"
+	},
+	{
+		"name": "ENVOY_SHA",
+		"repoName": "envoyproxy/envoy",
+		"prodBranch": "master",
+		"file": "WORKSPACE",
+		"lastStableSHA": "07c2bf971c147e45326cccaa65e5843c9484ae6c"
 	}
 ]

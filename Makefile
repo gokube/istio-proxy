@@ -34,12 +34,15 @@ clean:
 	@bazel clean
 
 test:
-	bazel $(BAZEL_STARTUP_ARGS) test $(BAZEL_TEST_ARGS) //...
-	bazel $(BAZEL_STARTUP_ARGS) test $(BAZEL_TEST_ARGS) --config=asan //...
-	bazel $(BAZEL_STARTUP_ARGS) test $(BAZEL_TEST_ARGS) --config=clang-tsan //...
+	@bazel $(BAZEL_STARTUP_ARGS) test $(BAZEL_TEST_ARGS) //...
 
-test_envoy:
-	@bazel $(BAZEL_STARTUP_ARGS) test $(BAZEL_TEST_ARGS) //src/envoy/mixer/...
+test_asan:
+	export CC=clang-5.0 CXX=clang++-5.0
+	@bazel $(BAZEL_STARTUP_ARGS) test $(BAZEL_TEST_ARGS) --config=clang-asan //...
+
+test_tsan:
+	export CC=clang-5.0 CXX=clang++-5.0
+	@bazel $(BAZEL_STARTUP_ARGS) test $(BAZEL_TEST_ARGS) --config=clang-tsan //...
 
 check:
 	@script/check-license-headers
@@ -49,7 +52,7 @@ artifacts: build
 	@script/push-debian.sh -c opt -p $(ARTIFACTS_DIR)
 
 deb:
-	bazel build tools/deb:istio-proxy  ${BAZEL_BUILD_ARGS}
+	@bazel build tools/deb:istio-proxy ${BAZEL_BUILD_ARGS}
 
 
 .PHONY: build clean test check artifacts
