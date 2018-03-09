@@ -8,9 +8,9 @@
 	},
 	{
 		"name": "ENVOY_SHA",
-		"repoName": "envoyproxy/envoy",
+		"repoName": "colabsaumoh/envoy",
 		"prodBranch": "master",
 		"file": "WORKSPACE",
-		"lastStableSHA": "07c2bf971c147e45326cccaa65e5843c9484ae6c"
+		"lastStableSHA": "854235167b8a0f886571e0d3e03f61db71adb8f7"
 	}
 ]
