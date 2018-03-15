@@ -30,7 +30,7 @@ bind(
 )
 
 # When updating envoy sha manually please update the sha in istio.deps file also
-ENVOY_SHA = "854235167b8a0f886571e0d3e03f61db71adb8f7"
+ENVOY_SHA = "a5c1f77257121805f3a59139a734286b94577f49"
 
 git_repository(
     name = "envoy",
