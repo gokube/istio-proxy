@@ -4,7 +4,9 @@ jobs:
   build:
     environment:
     docker:
-      - image: istio/ci:go1.9-bazel0.7
+      - image: istio/ci:go1.9-bazel0.11
+    environment:
+      - BAZEL_TEST_ARGS: "--test_env=ENVOY_IP_TEST_VERSIONS=v4only"
     resource_class: xlarge
     steps:
       - checkout
@@ -16,8 +18,10 @@ jobs:
             - repo-cache-{{ checksum "WORKSPACE" }}
       # To build docker containers or run tests in a docker
       - setup_remote_docker
+      - run: rm ~/.gitconfig
       - run: make deb BAZEL_BUILD_ARGS="-j 4"
-      - run: make test_envoy
+      - run: make test
+      - run: make test_asan
       - save_cache:
           key: repo-cache-{{ checksum "WORKSPACE" }}
           paths:
